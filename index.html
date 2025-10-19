@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autoflower Grow Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌱 Autoflower Grow Tracker</h1>
+            <p class="subtitle">Complete Growing Guide with General Hydroponics Flora Trio</p>
+        </header>
+
+        <!-- Growth Progress Section -->
+        <section class="progress-section">
+            <h2>Growth Progress</h2>
+
+            <!-- Timeline Tracker -->
+            <div class="timeline-controls">
+                <h3>⏰ Grow Timeline Tracker</h3>
+                <div class="timeline-input-group">
+                    <div class="input-group">
+                        <label for="startDateInput">Set Start Date:</label>
+                        <input type="date" id="startDateInput">
+                    </div>
+                    <button id="setStartDate">Set Start Date</button>
+                    <button id="resetGrow" class="secondary-btn">Reset Grow</button>
+                </div>
+                <div class="auto-update-toggle">
+                    <input type="checkbox" id="toggleAutoUpdate">
+                    <label for="toggleAutoUpdate">Auto-update week based on start date</label>
+                </div>
+            </div>
+
+            <div id="timelineInfo" class="timeline-info"></div>
+
+            <div class="week-selector">
+                <label for="currentWeek">Current Week:</label>
+                <select id="currentWeek">
+                    <option value="1">Week 1 - Germination & Early Seedling</option>
+                    <option value="2">Week 2 - Late Seedling</option>
+                    <option value="3">Week 3 - Early Vegetative</option>
+                    <option value="4">Week 4 - Late Vegetative</option>
+                    <option value="5">Week 5 - Pre-Flowering</option>
+                    <option value="6">Week 6 - Early Flowering</option>
+                    <option value="7">Week 7 - Mid Flowering</option>
+                    <option value="8">Week 8 - Peak Flowering</option>
+                    <option value="9">Week 9 - Late Flowering/Flush</option>
+                    <option value="10">Week 10 - Harvest Prep</option>
+                </select>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="stage-info" id="stageInfo"></div>
+        </section>
+
+        <!-- Nutrient Calculator Section -->
+        <section class="nutrient-section">
+            <h2>General Hydroponics Flora Trio Calculator</h2>
+            <div class="calculator-inputs">
+                <div class="input-group">
+                    <label for="gallons">Water Volume (Gallons):</label>
+                    <input type="number" id="gallons" value="1" min="0.25" step="0.25">
+                </div>
+                <div class="input-group">
+                    <label for="growMedium">Growing Medium:</label>
+                    <select id="growMedium">
+                        <option value="hydro">Hydroponic (DWC/Recirculating)</option>
+                        <option value="soil">Soil/Coco (Drain-to-Waste)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="nutrient-schedule" id="nutrientSchedule">
+                <!-- Nutrient measurements will be populated here -->
+            </div>
+
+            <div class="mixing-instructions">
+                <h3>⚠️ Mixing Order (Important!)</h3>
+                <ol>
+                    <li>Start with water</li>
+                    <li>Add <strong>FloraMicro</strong> first and stir</li>
+                    <li>Add <strong>FloraGro</strong> and stir</li>
+                    <li>Add <strong>FloraBloom</strong> last and stir</li>
+                    <li>Check pH and adjust to target range</li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- Weekly Checklist Section -->
+        <section class="checklist-section">
+            <h2>Weekly Checklist</h2>
+            <div id="weeklyChecklist">
+                <!-- Checklist items will be populated here -->
+            </div>
+        </section>
+
+        <!-- Parameters Reference -->
+        <section class="parameters-section">
+            <h2>Target Parameters</h2>
+            <div class="parameters-grid">
+                <div class="param-card">
+                    <h3>pH Levels</h3>
+                    <p><strong>Hydro (Veg):</strong> 5.5-6.0 (5.8 optimal)</p>
+                    <p><strong>Hydro (Flower):</strong> 6.0-6.5 (6.2-6.3 optimal)</p>
+                    <p><strong>Soil/Coco:</strong> 6.0-6.5</p>
+                </div>
+                <div class="param-card">
+                    <h3>PPM/EC Targets</h3>
+                    <p><strong>Week 1-2:</strong> 400 PPM (0.8 EC)</p>
+                    <p><strong>Week 3-4:</strong> 500-700 PPM (1.0-1.4 EC)</p>
+                    <p><strong>Week 5-8:</strong> 600-800 PPM (1.2-1.6 EC)</p>
+                    <p><strong>Week 9-10:</strong> Flush (0 PPM)</p>
+                </div>
+                <div class="param-card">
+                    <h3>Environment</h3>
+                    <p><strong>Temperature:</strong> 70-80°F (21-27°C)</p>
+                    <p><strong>Humidity (Veg):</strong> 60-70%</p>
+                    <p><strong>Humidity (Flower):</strong> 40-50%</p>
+                    <p><strong>Light (18/6 or 20/4):</strong> Consistent</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Notes Section -->
+        <section class="notes-section">
+            <h2>Grow Notes</h2>
+            <textarea id="growNotes" placeholder="Record observations, changes, or issues here..."></textarea>
+            <button id="saveNotes">Save Notes</button>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
