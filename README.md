@@ -33,6 +33,14 @@ A comprehensive web-based tracking application for autoflower cannabis cultivati
 - Built-in notepad for observations
 - Automatic saving to browser localStorage
 
+### ☁️ Cross-Device Sync (Optional)
+- **Firebase integration** for automatic data syncing across all your devices
+- Sign in with Google to enable cloud sync
+- Real-time updates - changes on one device instantly appear on others
+- Secure and private - only you can access your data
+- Works offline - syncs when back online
+- **See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for setup instructions**
+
 ## Usage
 
 1. **Set Your Start Date**: Enter when you started germination and enable auto-update
@@ -44,7 +52,8 @@ A comprehensive web-based tracking application for autoflower cannabis cultivati
 
 ## Data Persistence
 
-All data is stored locally in your browser using localStorage:
+### LocalStorage (Default)
+Without Firebase, all data is stored locally in your browser:
 - Current week selection
 - Grow start date
 - Auto-update preferences
@@ -52,6 +61,16 @@ All data is stored locally in your browser using localStorage:
 - Grow notes
 
 Your data persists between sessions and remains private on your device.
+
+### Firebase Cloud Sync (Optional)
+When you set up Firebase and sign in with Google:
+- All data automatically syncs across devices (phone, tablet, laptop)
+- Real-time updates - changes appear instantly everywhere
+- Secure cloud backup - never lose your grow data
+- Works offline and syncs when reconnected
+- Free tier supports unlimited personal use
+
+**To enable cross-device sync, follow the [Firebase Setup Guide](FIREBASE_SETUP.md)**
 
 ## Accessing the Tracker
 

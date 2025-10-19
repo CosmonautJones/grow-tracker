@@ -567,3 +567,247 @@ function updateTimelineInfo() {
         </div>
     `;
 }
+
+// ============================================
+// FIREBASE INTEGRATION
+// ============================================
+
+let currentUser = null;
+let unsubscribeFirestore = null;
+
+// Initialize Firebase authentication
+function initFirebaseAuth() {
+    const signInBtn = document.getElementById('signInBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const userInfo = document.getElementById('userInfo');
+    const userEmail = document.getElementById('userEmail');
+
+    // Sign in with Google
+    if (signInBtn) {
+        signInBtn.addEventListener('click', async () => {
+            try {
+                const result = await window.firebaseSignInWithPopup(window.firebaseAuth, window.firebaseGoogleProvider);
+                currentUser = result.user;
+                console.log('Signed in:', currentUser.email);
+            } catch (error) {
+                console.error('Sign in error:', error);
+                alert('Sign in failed: ' + error.message);
+            }
+        });
+    }
+
+    // Sign out
+    if (signOutBtn) {
+        signOutBtn.addEventListener('click', async () => {
+            try {
+                await window.firebaseSignOut(window.firebaseAuth);
+                console.log('Signed out');
+            } catch (error) {
+                console.error('Sign out error:', error);
+            }
+        });
+    }
+
+    // Auth state observer
+    window.firebaseOnAuthStateChanged(window.firebaseAuth, (user) => {
+        currentUser = user;
+
+        if (user) {
+            // User is signed in
+            signInBtn.classList.add('hidden');
+            userInfo.classList.remove('hidden');
+            userEmail.textContent = user.email;
+
+            // Load data from Firestore
+            loadFromFirestore();
+            // Set up real-time sync
+            setupFirestoreSync();
+        } else {
+            // User is signed out
+            signInBtn.classList.remove('hidden');
+            userInfo.classList.add('hidden');
+
+            // Clean up listener
+            if (unsubscribeFirestore) {
+                unsubscribeFirestore();
+                unsubscribeFirestore = null;
+            }
+        }
+    });
+}
+
+// Save data to Firestore
+async function saveToFirestore(data) {
+    if (!currentUser) return;
+
+    try {
+        const userDocRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid);
+        await window.firebaseSetDoc(userDocRef, {
+            ...data,
+            lastUpdated: new Date().toISOString()
+        }, { merge: true });
+        console.log('Data saved to Firestore');
+    } catch (error) {
+        console.error('Error saving to Firestore:', error);
+    }
+}
+
+// Load data from Firestore
+async function loadFromFirestore() {
+    if (!currentUser) return;
+
+    try {
+        const userDocRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid);
+        const docSnap = await window.firebaseGetDoc(userDocRef);
+
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            console.log('Data loaded from Firestore:', data);
+
+            // Apply data to UI and localStorage
+            if (data.currentWeek) {
+                localStorage.setItem('currentWeek', data.currentWeek);
+                document.getElementById('currentWeek').value = data.currentWeek;
+            }
+            if (data.growMedium) {
+                localStorage.setItem('growMedium', data.growMedium);
+                document.getElementById('growMedium').value = data.growMedium;
+            }
+            if (data.growStartDate) {
+                localStorage.setItem('growStartDate', data.growStartDate);
+                document.getElementById('startDateInput').value = data.growStartDate;
+            }
+            if (data.autoUpdateWeek !== undefined) {
+                localStorage.setItem('autoUpdateWeek', data.autoUpdateWeek);
+                document.getElementById('toggleAutoUpdate').checked = data.autoUpdateWeek === 'true';
+            }
+            if (data.growNotes) {
+                localStorage.setItem('growNotes', data.growNotes);
+                document.getElementById('growNotes').value = data.growNotes;
+            }
+            if (data.gallons) {
+                document.getElementById('gallons').value = data.gallons;
+            }
+
+            // Load checklists
+            if (data.checklists) {
+                Object.keys(data.checklists).forEach(week => {
+                    localStorage.setItem(`checklist_week_${week}`, JSON.stringify(data.checklists[week]));
+                });
+            }
+
+            // Refresh UI
+            updateNutrientSchedule();
+            updateStageInfo();
+            updateChecklist();
+            updateTimelineInfo();
+        }
+    } catch (error) {
+        console.error('Error loading from Firestore:', error);
+    }
+}
+
+// Set up real-time Firestore sync
+function setupFirestoreSync() {
+    if (!currentUser) return;
+
+    const userDocRef = window.firebaseDoc(window.firebaseDb, 'users', currentUser.uid);
+
+    unsubscribeFirestore = window.firebaseOnSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+            const data = doc.data();
+            console.log('Real-time update from Firestore');
+
+            // Only update if data is newer (to avoid loops)
+            const localLastUpdate = localStorage.getItem('lastLocalUpdate');
+            const firestoreLastUpdate = data.lastUpdated;
+
+            if (!localLastUpdate || new Date(firestoreLastUpdate) > new Date(localLastUpdate)) {
+                // Apply updates from other devices
+                if (data.currentWeek && document.getElementById('currentWeek').value !== data.currentWeek) {
+                    document.getElementById('currentWeek').value = data.currentWeek;
+                    localStorage.setItem('currentWeek', data.currentWeek);
+                    updateNutrientSchedule();
+                    updateStageInfo();
+                    updateChecklist();
+                }
+
+                if (data.growNotes && document.getElementById('growNotes').value !== data.growNotes) {
+                    document.getElementById('growNotes').value = data.growNotes;
+                    localStorage.setItem('growNotes', data.growNotes);
+                }
+            }
+        }
+    });
+}
+
+// Sync all data to Firestore
+function syncAllDataToFirestore() {
+    if (!currentUser) return;
+
+    // Collect all checklists
+    const checklists = {};
+    for (let week = 1; week <= 10; week++) {
+        const checklistData = localStorage.getItem(`checklist_week_${week}`);
+        if (checklistData) {
+            checklists[week] = JSON.parse(checklistData);
+        }
+    }
+
+    const data = {
+        currentWeek: document.getElementById('currentWeek').value,
+        growMedium: document.getElementById('growMedium').value,
+        growStartDate: localStorage.getItem('growStartDate') || '',
+        autoUpdateWeek: localStorage.getItem('autoUpdateWeek') || 'false',
+        growNotes: document.getElementById('growNotes').value,
+        gallons: document.getElementById('gallons').value,
+        checklists: checklists
+    };
+
+    localStorage.setItem('lastLocalUpdate', new Date().toISOString());
+    saveToFirestore(data);
+}
+
+// Override save functions to also sync to Firestore
+const originalSaveCurrentWeek = saveCurrentWeek;
+saveCurrentWeek = function() {
+    originalSaveCurrentWeek();
+    syncAllDataToFirestore();
+};
+
+const originalSaveMedium = saveMedium;
+saveMedium = function() {
+    originalSaveMedium();
+    syncAllDataToFirestore();
+};
+
+const originalSaveNotes = saveNotes;
+saveNotes = function() {
+    originalSaveNotes();
+    syncAllDataToFirestore();
+};
+
+const originalSaveChecklistItem = saveChecklistItem;
+saveChecklistItem = function(id, week) {
+    originalSaveChecklistItem(id, week);
+    syncAllDataToFirestore();
+};
+
+const originalSetStartDate = setStartDate;
+setStartDate = function() {
+    originalSetStartDate();
+    syncAllDataToFirestore();
+};
+
+const originalToggleAutoUpdate = toggleAutoUpdate;
+toggleAutoUpdate = function() {
+    originalToggleAutoUpdate();
+    syncAllDataToFirestore();
+};
+
+// Initialize Firebase when available
+setTimeout(() => {
+    if (window.firebaseAuth) {
+        initFirebaseAuth();
+    }
+}, 100);

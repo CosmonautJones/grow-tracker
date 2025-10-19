@@ -12,3 +12,16 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Test files
+test-*.js
+inspect-*.js
+
+# Screenshots
+*.png
+*.jpg
+*.jpeg
