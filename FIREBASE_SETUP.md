@@ -57,7 +57,7 @@ const firebaseConfig = {
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
+    match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
@@ -66,7 +66,7 @@ service cloud.firestore {
 
 3. Click "Publish"
 
-**What this does:** Users can only read/write their own data when authenticated.
+**What this does:** Users can only read/write their own data (including all subcollections like grows, notes, photos, etc.) when authenticated. The `{document=**}` wildcard is required — without it, Firestore rules only cover the top-level user document, not the subcollections where all grow data lives.
 
 ## Step 5: Set Up Firebase Storage
 

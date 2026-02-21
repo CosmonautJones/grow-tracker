@@ -9,7 +9,9 @@ let notFoundHandler = null;
 // Parse hash into { path, params }
 function parseHash(hash) {
   const raw = hash.replace(/^#\/?/, '') || 'dashboard';
-  return '/' + raw;
+  // Strip query string before matching (views read it from window.location.hash directly)
+  const path = raw.split('?')[0];
+  return '/' + path;
 }
 
 // Match a path against a route pattern, extracting params
@@ -64,6 +66,8 @@ const router = {
   },
 
   async _handleRoute() {
+    if (!contentEl) return;
+
     const path = parseHash(window.location.hash);
 
     // Find matching route
@@ -102,8 +106,14 @@ const router = {
 
     // Render, then init
     contentEl.innerHTML = '';
-    if (typeof view.render === 'function') {
-      view.render(contentEl, params);
+    try {
+      if (typeof view.render === 'function') {
+        view.render(contentEl, params);
+      }
+    } catch (e) {
+      console.error('View render error:', e);
+      contentEl.innerHTML = '<div class="not-found"><h2>Something went wrong</h2><p><a href="#/dashboard">Go to Dashboard</a></p></div>';
+      return;
     }
     if (typeof view.init === 'function') {
       try { await view.init(params); } catch (e) { console.error('View init error:', e); }

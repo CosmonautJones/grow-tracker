@@ -30,22 +30,26 @@ router.addRoute('/grow/:id/environment', environment);
 fb.onAuth(async (user) => {
   header.updateAuth(user);
 
-  if (user) {
-    // Run migration for signed-in user
-    await runMigration(user.uid);
+  try {
+    if (user) {
+      // Run migration for signed-in user
+      await runMigration(user.uid);
 
-    // Ensure user doc exists
-    const existingDoc = await fb.getUserDoc(user.uid);
-    if (!existingDoc) {
-      await fb.setUserDoc(user.uid, {
-        displayName: user.displayName || '',
-        email: user.email || '',
-        createdAt: new Date().toISOString()
-      });
+      // Ensure user doc exists
+      const existingDoc = await fb.getUserDoc(user.uid);
+      if (!existingDoc) {
+        await fb.setUserDoc(user.uid, {
+          displayName: user.displayName || '',
+          email: user.email || '',
+          createdAt: new Date().toISOString()
+        });
+      }
+    } else {
+      // Run local-only migration
+      await runMigration(null);
     }
-  } else {
-    // Run local-only migration
-    await runMigration(null);
+  } catch (e) {
+    console.error('Auth init error:', e);
   }
 
   // Initialize router after auth resolves (only once)

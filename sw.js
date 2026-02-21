@@ -116,12 +116,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell — cache-first for same-origin
+  // App shell — stale-while-revalidate for same-origin
+  // Serves cached version immediately for speed, then fetches fresh version in background.
+  // Users get updates on their next visit without needing a hard refresh.
   if (url.origin === location.origin) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((response) => {
+        const fetchPromise = fetch(event.request).then((response) => {
           if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_VERSION).then(cache => cache.put(event.request, clone));
@@ -133,6 +134,7 @@ self.addEventListener('fetch', (event) => {
             return caches.match('./index.html');
           }
         });
+        return cached || fetchPromise;
       })
     );
     return;

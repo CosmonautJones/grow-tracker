@@ -27,6 +27,7 @@ let unsubEnvLogs = null;
 let editingFeedingLogId = null;
 let feedingLogsData = [];
 let feedingChart = null;
+let resizeHandler = null;
 
 export function render(container, params) {
   growId = params.id;
@@ -1053,11 +1054,15 @@ function showEditGrowModal() {
 
 function checkTableOverflow(tableWrapper) {
   if (!tableWrapper) return;
-  const check = () => {
+  // Remove previous resize handler to prevent stacking
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler);
+  }
+  resizeHandler = () => {
     tableWrapper.classList.toggle('has-overflow', tableWrapper.scrollWidth > tableWrapper.clientWidth);
   };
-  check();
-  window.addEventListener('resize', check);
+  resizeHandler();
+  window.addEventListener('resize', resizeHandler);
 }
 
 // ── Recent Notes Preview ──
@@ -1358,6 +1363,7 @@ export function destroy() {
   if (unsubLogs) { unsubLogs(); unsubLogs = null; }
   if (unsubEnvLogs) { unsubEnvLogs(); unsubEnvLogs = null; }
   if (unsubStore) { unsubStore(); unsubStore = null; }
+  if (resizeHandler) { window.removeEventListener('resize', resizeHandler); resizeHandler = null; }
   if (autoUpdateInterval) { clearInterval(autoUpdateInterval); autoUpdateInterval = null; }
   if (scheduleChart) {
     try { scheduleChart.destroy(); } catch (e) { /* ignore */ }

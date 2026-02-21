@@ -56,6 +56,8 @@ export function renderChecklist(container, { growId, week, plantType, photoperio
   container.innerHTML = html;
 
   // Single delegated change listener on the container
+  // Remove first to prevent stacking on repeated renderChecklist() calls
+  container.removeEventListener('change', handleCheckboxChange);
   container.addEventListener('change', handleCheckboxChange);
 }
 

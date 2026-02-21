@@ -59,10 +59,14 @@ export async function setUserDoc(uid, data) {
   return setDoc(userDocRef(uid), { ...data, updatedAt: new Date().toISOString() }, { merge: true });
 }
 
+function snapshotErrorHandler(context) {
+  return (error) => console.error(`Firestore listener error (${context}):`, error);
+}
+
 export function onUserDoc(uid, callback) {
   return onSnapshot(userDocRef(uid), (snap) => {
     callback(snap.exists() ? { id: snap.id, ...snap.data() } : null);
-  });
+  }, snapshotErrorHandler('userDoc'));
 }
 
 // ── Grows ──
@@ -105,13 +109,13 @@ export async function getAllGrows(uid) {
 export function onGrow(uid, growId, callback) {
   return onSnapshot(growDocRef(uid, growId), (snap) => {
     callback(snap.exists() ? { id: snap.id, ...snap.data() } : null);
-  });
+  }, snapshotErrorHandler('grow'));
 }
 
 export function onAllGrows(uid, callback) {
   return onSnapshot(growsCol(uid), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
+  }, snapshotErrorHandler('allGrows'));
 }
 
 // ── Weeks (checklists) ──
@@ -168,7 +172,7 @@ export async function getAllNotes(uid, growId) {
 export function onAllNotes(uid, growId, callback) {
   return onSnapshot(notesCol(uid, growId), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
+  }, snapshotErrorHandler('allNotes'));
 }
 
 // ── Photos ──
@@ -201,7 +205,7 @@ export async function getAllPhotos(uid, growId) {
 export function onAllPhotos(uid, growId, callback) {
   return onSnapshot(photosCol(uid, growId), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
+  }, snapshotErrorHandler('allPhotos'));
 }
 
 // ── Feeding Logs ──
@@ -238,7 +242,7 @@ export async function deleteFeedingLog(uid, growId, logId) {
 export function onAllFeedingLogs(uid, growId, callback) {
   return onSnapshot(feedingLogsCol(uid, growId), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
+  }, snapshotErrorHandler('allFeedingLogs'));
 }
 
 // ── Environment Logs ──
@@ -275,7 +279,7 @@ export async function deleteEnvLog(uid, growId, logId) {
 export function onAllEnvLogs(uid, growId, callback) {
   return onSnapshot(envLogsCol(uid, growId), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
+  }, snapshotErrorHandler('allEnvLogs'));
 }
 
 // ── Weeks (getAllWeeks export) ──
