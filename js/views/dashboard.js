@@ -6,10 +6,26 @@ import { updateNav } from '../components/header.js';
 import { escapeHtml, showToast, showConfirmModal } from '../utils.js';
 import { exportAllGrowsAsJson, importFromJson, applyImport } from '../export-import.js';
 
+// ngrok static tunnel — Pi camera server (mars-pi) exposed publicly.
+// Local fallback: http://192.168.1.88:8080
+const CAMERA_URL = 'https://hyperemotively-photobathic-yajaira.ngrok-free.dev';
+
 let unsubGrows = null;
 
 export function render(container) {
   container.innerHTML = `
+    <section class="live-feed-section">
+      <div class="feed-header">
+        <h2>&#x1f4f7; Live Tent Feed</h2>
+        <span class="feed-status" id="feedStatus">Connecting...</span>
+      </div>
+      <div class="live-feed-container">
+        <img id="tentStream"
+             src="${CAMERA_URL}/stream"
+             alt="Live tent camera"
+             class="live-feed-img">
+      </div>
+    </section>
     <section class="dashboard-section">
       <div class="dashboard-header">
         <h2>Your Grows</h2>
@@ -33,6 +49,14 @@ export function render(container) {
 
 export function init() {
   updateNav(null);
+
+  // Camera feed status
+  const stream = document.getElementById('tentStream');
+  const feedStatus = document.getElementById('feedStatus');
+  if (stream) {
+    stream.addEventListener('load', () => { feedStatus.textContent = 'Live'; feedStatus.className = 'feed-status online'; });
+    stream.addEventListener('error', () => { feedStatus.textContent = 'Offline'; feedStatus.className = 'feed-status offline'; });
+  }
 
   document.getElementById('newGrowBtn').addEventListener('click', () => {
     router.navigate('/new');
