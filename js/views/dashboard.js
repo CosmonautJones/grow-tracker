@@ -6,12 +6,14 @@ import { updateNav } from '../components/header.js';
 import { escapeHtml, showToast, showConfirmModal } from '../utils.js';
 import { exportAllGrowsAsJson, importFromJson, applyImport } from '../export-import.js';
 
-// ngrok static tunnel — Pi camera server (mars-pi) exposed publicly.
+// Pi camera server — self-hosted via DuckDNS + Caddy (HTTPS, no auth proxy).
+// Stream is protected by Firebase ID tokens — the signed-in Google user's token
+// is passed as ?token= in the img src and refreshed every 55 min.
 // Local fallback: http://192.168.1.88:8000
 const CAMERA_URL = 'https://cosmonaut-tent.duckdns.org';
-const STREAM_TOKEN = 'VLPB2B5oM-9uYkR6_SeFhaWx2RmXdNaX';
 
 let unsubGrows = null;
+let streamTokenInterval = null;
 
 export function render(container) {
   container.innerHTML = `
@@ -22,13 +24,13 @@ export function render(container) {
       </div>
       <div class="live-feed-container" id="feedContainer">
         <img id="tentStream"
-             src="${CAMERA_URL}/stream?token=${STREAM_TOKEN}"
              alt="Live tent camera"
              class="live-feed-img">
         <div class="feed-offline-placeholder" id="feedOfflinePlaceholder">
           <span class="feed-offline-icon">&#x1f4f7;</span>
-          <p>Live feed offline</p>
-          <p class="feed-offline-hint">Camera server may be sleeping</p>
+          <p id="feedOfflineMsg">Live feed offline</p>
+          <p class="feed-offline-hint" id="feedOfflineHint">Camera server may be sleeping.</p>
+          <button class="feed-auth-btn hidden" id="feedSignInBtn">&#x1f511; Sign in to view live feed</button>
         </div>
       </div>
     </section>
@@ -56,23 +58,46 @@ export function render(container) {
 export function init() {
   updateNav(null);
 
-  // Camera feed status
+  // Camera feed — protected by Firebase ID token
   const stream = document.getElementById('tentStream');
   const feedStatus = document.getElementById('feedStatus');
+  const placeholder = document.getElementById('feedOfflinePlaceholder');
   if (stream) {
-    const placeholder = document.getElementById('feedOfflinePlaceholder');
-    stream.addEventListener('load', () => {
-      feedStatus.textContent = 'Live';
-      feedStatus.className = 'feed-status online';
-      stream.style.display = 'block';
-      if (placeholder) placeholder.style.display = 'none';
-    });
-    stream.addEventListener('error', () => {
-      feedStatus.textContent = 'Offline';
-      feedStatus.className = 'feed-status offline';
+    const user = fb.getCurrentUser();
+    if (!user) {
+      // Not signed in — show prompt, hide stream
       stream.style.display = 'none';
-      if (placeholder) placeholder.style.display = 'flex';
-    });
+      placeholder.style.display = 'flex';
+      feedStatus.textContent = 'Sign in required';
+      feedStatus.className = 'feed-status offline';
+      document.getElementById('feedOfflineMsg').textContent = 'Sign in to view the live feed.';
+      document.getElementById('feedOfflineHint').textContent = 'Use the Sign In button in the header.';
+      const signInBtn = document.getElementById('feedSignInBtn');
+      signInBtn.classList.remove('hidden');
+      signInBtn.addEventListener('click', () => {
+        fb.signInWithGoogle().catch(err => showToast('Sign in failed: ' + err.message, 'error'));
+      });
+    } else {
+      // Signed in — load stream with Firebase token
+      stream.addEventListener('load', () => {
+        feedStatus.textContent = 'Live';
+        feedStatus.className = 'feed-status online';
+        stream.style.display = 'block';
+        placeholder.style.display = 'none';
+      });
+      stream.addEventListener('error', () => {
+        feedStatus.textContent = 'Offline';
+        feedStatus.className = 'feed-status offline';
+        stream.style.display = 'none';
+        placeholder.style.display = 'flex';
+      });
+      _loadStream(user, stream);
+      // Refresh token every 55 min (Firebase tokens expire after 1 h)
+      streamTokenInterval = setInterval(() => {
+        const u = fb.getCurrentUser();
+        if (u) _loadStream(u, stream);
+      }, 55 * 60 * 1000);
+    }
   }
 
   document.getElementById('newGrowBtn').addEventListener('click', () => {
@@ -139,6 +164,15 @@ export function init() {
   document.getElementById('completedGrows').addEventListener('keydown', handleCardKeydown);
 
   loadGrows();
+}
+
+async function _loadStream(user, streamEl) {
+  try {
+    const token = await user.getIdToken(false);
+    streamEl.src = `${CAMERA_URL}/stream?token=${encodeURIComponent(token)}`;
+  } catch (err) {
+    console.error('Failed to get Firebase ID token for stream:', err);
+  }
 }
 
 async function loadGrows() {
@@ -240,5 +274,9 @@ export function destroy() {
   if (unsubGrows) {
     unsubGrows();
     unsubGrows = null;
+  }
+  if (streamTokenInterval) {
+    clearInterval(streamTokenInterval);
+    streamTokenInterval = null;
   }
 }
