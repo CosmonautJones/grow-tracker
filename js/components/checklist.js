@@ -55,14 +55,14 @@ export function renderChecklist(container, { growId, week, plantType, photoperio
 
   container.innerHTML = html;
 
-  // Attach event listeners
-  container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', handleCheckboxChange);
-  });
+  // Single delegated change listener on the container
+  container.addEventListener('change', handleCheckboxChange);
 }
 
 function handleCheckboxChange(e) {
   const checkbox = e.target;
+  if (checkbox.type !== 'checkbox' || !checkbox.dataset.taskId) return;
+
   const taskId = checkbox.dataset.taskId;
   const item = checkbox.closest('.checklist-item');
 
@@ -77,9 +77,10 @@ function handleCheckboxChange(e) {
   }
 }
 
-export function getCompletionStats(growId, week) {
+export function getCompletionStats(growId, week, plantType, photoperiodVegWeeks) {
   const saved = store.get(`grow_${growId}_checklist_${week}`) || {};
-  const total = Object.keys(saved).length;
+  const checklist = getChecklistForWeek(week, plantType, photoperiodVegWeeks);
+  const total = checklist ? checklist.daily.length + checklist.weekly.length : 0;
   const completed = Object.values(saved).filter(Boolean).length;
   return { total, completed };
 }

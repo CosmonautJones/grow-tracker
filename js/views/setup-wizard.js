@@ -3,6 +3,7 @@ import store from '../store.js';
 import * as fb from '../firebase.js';
 import router from '../router.js';
 import { NUTRIENT_BRANDS, getTotalWeeks } from '../data/nutrient-schedules.js';
+import { escapeHtml, isValidDate, showToast } from '../utils.js';
 
 let currentStep = 1;
 const TOTAL_STEPS = 6;
@@ -127,7 +128,10 @@ function renderPlantType(el) {
   const vegInput = el.querySelector('#vegWeeks');
   if (vegInput) {
     vegInput.addEventListener('change', (e) => {
-      formData.photoperiodVegWeeks = parseInt(e.target.value) || 4;
+      let val = parseInt(e.target.value) || 4;
+      val = Math.max(2, Math.min(16, val));
+      e.target.value = val;
+      formData.photoperiodVegWeeks = val;
     });
   }
 }
@@ -137,15 +141,21 @@ function renderStrainInfo(el) {
     <h3>Strain Information</h3>
     <div class="input-group">
       <label for="strainName">Strain Name *</label>
-      <input type="text" id="strainName" value="${formData.strainName}" placeholder="e.g., Northern Lights Auto" required>
+      <input type="text" id="strainName" value="${escapeHtml(formData.strainName)}" placeholder="e.g., Northern Lights Auto" required>
+      <div id="strainNameError" class="input-error-message hidden">Strain name is required.</div>
     </div>
     <div class="input-group" style="margin-top: 15px;">
       <label for="breeder">Breeder (optional)</label>
-      <input type="text" id="breeder" value="${formData.breeder}" placeholder="e.g., Royal Queen Seeds">
+      <input type="text" id="breeder" value="${escapeHtml(formData.breeder)}" placeholder="e.g., Royal Queen Seeds">
     </div>
   `;
 
-  el.querySelector('#strainName').addEventListener('input', e => { formData.strainName = e.target.value; });
+  const strainInput = el.querySelector('#strainName');
+  strainInput.addEventListener('input', e => {
+    formData.strainName = e.target.value;
+    strainInput.classList.remove('input-error');
+    document.getElementById('strainNameError').classList.add('hidden');
+  });
   el.querySelector('#breeder').addEventListener('input', e => { formData.breeder = e.target.value; });
 }
 
@@ -163,15 +173,15 @@ function renderGrowSetup(el) {
       </div>
       <div class="input-group">
         <label for="containerSize">Container Size (optional)</label>
-        <input type="text" id="containerSize" value="${formData.containerSize}" placeholder="e.g., 5 gallon, 3 gallon">
+        <input type="text" id="containerSize" value="${escapeHtml(formData.containerSize)}" placeholder="e.g., 5 gallon, 3 gallon">
       </div>
       <div class="input-group">
         <label for="lightSetup">Light Type (optional)</label>
-        <input type="text" id="lightSetup" value="${formData.lightSetup}" placeholder="e.g., LED, HPS, CMH">
+        <input type="text" id="lightSetup" value="${escapeHtml(formData.lightSetup)}" placeholder="e.g., LED, HPS, CMH">
       </div>
       <div class="input-group">
         <label for="lightWattage">Light Wattage (optional)</label>
-        <input type="text" id="lightWattage" value="${formData.lightWattage}" placeholder="e.g., 240W">
+        <input type="text" id="lightWattage" value="${escapeHtml(formData.lightWattage)}" placeholder="e.g., 240W">
       </div>
       <div class="input-group">
         <label for="lightSchedule">Light Schedule</label>
@@ -194,8 +204,12 @@ function renderGrowSetup(el) {
 
 function renderNutrients(el) {
   const brandOptions = Object.entries(NUTRIENT_BRANDS).map(([key, b]) =>
-    `<option value="${key}" ${formData.nutrientBrand === key ? 'selected' : ''}>${b.name}</option>`
+    `<option value="${key}" ${formData.nutrientBrand === key ? 'selected' : ''}>${escapeHtml(b.name)}</option>`
   ).join('');
+
+  const selectedBrand = NUTRIENT_BRANDS[formData.nutrientBrand];
+  const mediumCompat = selectedBrand?.supportedMediums;
+  const hasWarning = mediumCompat && !mediumCompat.includes(formData.growMedium);
 
   el.innerHTML = `
     <h3>Nutrient Configuration</h3>
@@ -209,9 +223,15 @@ function renderNutrients(el) {
         <input type="number" id="defaultGallons" value="${formData.gallons}" min="0.25" step="0.25">
       </div>
     </div>
+    <div id="brandMediumWarning" class="${hasWarning ? '' : 'hidden'}" style="margin-top: 15px; padding: 12px; background: #fff3e0; border-left: 4px solid var(--warning-color); border-radius: 6px;">
+      <strong>Note:</strong> ${escapeHtml(selectedBrand?.name || '')} is designed for ${mediumCompat ? escapeHtml(mediumCompat.join(', ')) : ''} growing. Your selected medium (${escapeHtml(formData.growMedium)}) may not be optimal. The closest available schedule will be used.
+    </div>
   `;
 
-  el.querySelector('#nutrientBrand').addEventListener('change', e => { formData.nutrientBrand = e.target.value; });
+  el.querySelector('#nutrientBrand').addEventListener('change', e => {
+    formData.nutrientBrand = e.target.value;
+    renderStep();
+  });
   el.querySelector('#defaultGallons').addEventListener('input', e => { formData.gallons = parseFloat(e.target.value) || 1; });
 }
 
@@ -221,7 +241,7 @@ function renderTimeline(el) {
     <div class="wizard-form-grid">
       <div class="input-group">
         <label for="startDate">Start Date</label>
-        <input type="date" id="startDate" value="${formData.startDate}">
+        <input type="date" id="startDate" value="${escapeHtml(formData.startDate)}">
       </div>
       <div class="auto-update-toggle" style="margin-top: 15px;">
         <input type="checkbox" id="autoUpdate" ${formData.autoUpdateWeek ? 'checked' : ''}>
@@ -230,7 +250,7 @@ function renderTimeline(el) {
     </div>
     <div class="input-group" style="margin-top: 20px;">
       <label for="initialNote">Initial Observation Note (optional)</label>
-      <textarea id="initialNote" rows="3" placeholder="Any initial notes about your grow...">${formData.initialNote}</textarea>
+      <textarea id="initialNote" rows="3" placeholder="Any initial notes about your grow...">${escapeHtml(formData.initialNote)}</textarea>
     </div>
   `;
 
@@ -241,25 +261,25 @@ function renderTimeline(el) {
 
 function renderReview(el) {
   const totalWeeks = getTotalWeeks(formData.nutrientBrand, formData.plantType,
-    formData.growMedium === 'coco' ? 'soil' : formData.growMedium, formData.photoperiodVegWeeks);
+    formData.growMedium, formData.photoperiodVegWeeks);
   const brandName = NUTRIENT_BRANDS[formData.nutrientBrand]?.name || formData.nutrientBrand;
 
   el.innerHTML = `
     <h3>Review Your Grow</h3>
     <div class="review-card">
       <div class="review-row"><strong>Plant Type:</strong> ${formData.plantType === 'autoflower' ? 'Autoflower' : 'Photoperiod'}</div>
-      <div class="review-row"><strong>Strain:</strong> ${formData.strainName || 'Not specified'} ${formData.breeder ? `(${formData.breeder})` : ''}</div>
-      <div class="review-row"><strong>Medium:</strong> ${formData.growMedium}</div>
-      ${formData.containerSize ? `<div class="review-row"><strong>Container:</strong> ${formData.containerSize}</div>` : ''}
-      ${formData.lightSetup ? `<div class="review-row"><strong>Light:</strong> ${formData.lightSetup} ${formData.lightWattage}</div>` : ''}
-      <div class="review-row"><strong>Light Schedule:</strong> ${formData.lightSchedule}</div>
-      <div class="review-row"><strong>Nutrients:</strong> ${brandName}</div>
+      <div class="review-row"><strong>Strain:</strong> ${escapeHtml(formData.strainName || 'Not specified')} ${formData.breeder ? `(${escapeHtml(formData.breeder)})` : ''}</div>
+      <div class="review-row"><strong>Medium:</strong> ${escapeHtml(formData.growMedium)}</div>
+      ${formData.containerSize ? `<div class="review-row"><strong>Container:</strong> ${escapeHtml(formData.containerSize)}</div>` : ''}
+      ${formData.lightSetup ? `<div class="review-row"><strong>Light:</strong> ${escapeHtml(formData.lightSetup)} ${escapeHtml(formData.lightWattage)}</div>` : ''}
+      <div class="review-row"><strong>Light Schedule:</strong> ${escapeHtml(formData.lightSchedule)}</div>
+      <div class="review-row"><strong>Nutrients:</strong> ${escapeHtml(brandName)}</div>
       <div class="review-row"><strong>Water Volume:</strong> ${formData.gallons} gallon(s)</div>
       <div class="review-row"><strong>Start Date:</strong> ${formData.startDate ? new Date(formData.startDate).toLocaleDateString() : 'Not set'}</div>
       <div class="review-row"><strong>Total Weeks:</strong> ${totalWeeks}</div>
       <div class="review-row"><strong>Auto-update Week:</strong> ${formData.autoUpdateWeek ? 'Yes' : 'No'}</div>
       ${formData.plantType === 'photoperiod' ? `<div class="review-row"><strong>Veg Weeks:</strong> ${formData.photoperiodVegWeeks}</div>` : ''}
-      ${formData.initialNote ? `<div class="review-row"><strong>Initial Note:</strong> ${formData.initialNote}</div>` : ''}
+      ${formData.initialNote ? `<div class="review-row"><strong>Initial Note:</strong> ${escapeHtml(formData.initialNote)}</div>` : ''}
     </div>
   `;
 }
@@ -289,7 +309,21 @@ async function goNext() {
 
   // Validation
   if (currentStep === 2 && !formData.strainName.trim()) {
-    alert('Please enter a strain name.');
+    showToast('Please enter a strain name.', 'error');
+    const strainInput = document.getElementById('strainName');
+    if (strainInput) strainInput.classList.add('input-error');
+    const strainError = document.getElementById('strainNameError');
+    if (strainError) strainError.classList.remove('hidden');
+    return;
+  }
+
+  if (currentStep === 4 && (!formData.gallons || formData.gallons <= 0)) {
+    showToast('Water volume must be greater than 0.', 'error');
+    return;
+  }
+
+  if (currentStep === 5 && formData.startDate && !isValidDate(formData.startDate)) {
+    showToast('Please enter a valid date between 2020 and 30 days from now.', 'error');
     return;
   }
 
@@ -303,12 +337,17 @@ async function goNext() {
   await createGrow();
 }
 
+let isSubmitting = false;
+
 async function createGrow() {
+  if (isSubmitting) return;
+  isSubmitting = true;
+
   const nextBtn = document.getElementById('wizardNext');
   nextBtn.disabled = true;
   nextBtn.textContent = 'Creating...';
 
-  const mediumForSchedule = formData.growMedium === 'coco' ? 'soil' : formData.growMedium;
+  const mediumForSchedule = formData.growMedium;
   const totalWeeks = getTotalWeeks(formData.nutrientBrand, formData.plantType, mediumForSchedule, formData.photoperiodVegWeeks);
 
   const growData = {
@@ -331,52 +370,57 @@ async function createGrow() {
     photoperiodVegWeeks: formData.plantType === 'photoperiod' ? formData.photoperiodVegWeeks : 0
   };
 
-  let growId;
-  const user = fb.getCurrentUser();
+  try {
+    let growId;
+    const user = fb.getCurrentUser();
 
-  if (user) {
-    // Save to Firestore
-    growId = await fb.createGrow(user.uid, growData);
+    if (user) {
+      growId = await fb.createGrow(user.uid, growData);
 
-    // Create initial note if provided
-    if (formData.initialNote.trim()) {
-      await fb.createNote(user.uid, growId, {
-        category: 'general',
-        title: 'Initial Observation',
-        content: formData.initialNote.trim(),
-        week: 1,
-        tags: []
-      });
+      if (formData.initialNote.trim()) {
+        await fb.createNote(user.uid, growId, {
+          category: 'general',
+          title: 'Initial Observation',
+          content: formData.initialNote.trim(),
+          week: 1,
+          tags: []
+        });
+      }
+
+      await fb.setUserDoc(user.uid, { activeGrowId: growId });
+    } else {
+      growId = 'local_' + Date.now();
+      growData.id = growId;
+      growData.createdAt = new Date().toISOString();
+
+      const grows = store.get('grows') || {};
+      grows[growId] = growData;
+      store.set('grows', grows);
+
+      if (formData.initialNote.trim()) {
+        const noteId = 'note_' + Date.now();
+        store.set(`grow_${growId}_notes`, [{
+          id: noteId,
+          category: 'general',
+          title: 'Initial Observation',
+          content: formData.initialNote.trim(),
+          week: 1,
+          tags: [],
+          createdAt: new Date().toISOString()
+        }]);
+      }
     }
 
-    // Set as active grow
-    await fb.setUserDoc(user.uid, { activeGrowId: growId });
-  } else {
-    // Save locally
-    growId = 'local_' + Date.now();
-    growData.id = growId;
-    growData.createdAt = new Date().toISOString();
-
-    const grows = store.get('grows') || {};
-    grows[growId] = growData;
-    store.set('grows', grows);
-
-    if (formData.initialNote.trim()) {
-      const noteId = 'note_' + Date.now();
-      store.set(`grow_${growId}_notes`, [{
-        id: noteId,
-        category: 'general',
-        title: 'Initial Observation',
-        content: formData.initialNote.trim(),
-        week: 1,
-        tags: [],
-        createdAt: new Date().toISOString()
-      }]);
-    }
+    store.set('activeGrowId', growId);
+    router.navigate(`/grow/${growId}`);
+  } catch (err) {
+    console.error('Create grow error:', err);
+    showToast('Failed to create grow. Please try again.', 'error');
+  } finally {
+    isSubmitting = false;
+    nextBtn.disabled = false;
+    nextBtn.textContent = 'Start Growing!';
   }
-
-  store.set('activeGrowId', growId);
-  router.navigate(`/grow/${growId}`);
 }
 
 export function destroy() {

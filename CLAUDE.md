@@ -32,29 +32,37 @@ js/
   router.js                       ← Hash-based router (#/dashboard, #/grow/:id, etc.)
   store.js                        ← Centralized localStorage wrapper with subscribe pattern
   migrate.js                      ← One-time migration from old flat data → new structure
+  utils.js                        ← Shared utilities (escapeHtml, showToast, showConfirmModal, isValidGrowId, etc.)
+  export-import.js                ← JSON/CSV export + JSON import with conflict strategies
   views/
-    dashboard.js                  ← Grow list (active + completed), "New Grow" button
+    dashboard.js                  ← Grow list (active + completed), export/import buttons
     setup-wizard.js               ← Multi-step grow creation form (6 steps)
-    grow-detail.js                ← Main grow dashboard (nutrients, checklist, timeline, charts)
+    grow-detail.js                ← Main grow dashboard (nutrients, checklist, timeline, charts, tips, env preview)
     notes.js                      ← Categorized notes list + add/edit modal
     gallery.js                    ← Photo gallery with upload, lightbox, filtering
+    guides.js                     ← Cultivation guide reference (accordion layout, deep-link)
+    environment.js                ← Environmental logging (temp, humidity, VPD, CO2, charts)
   components/
     header.js                     ← Persistent nav bar + auth status
-    nutrient-calculator.js        ← Nutrient display + Chart.js schedule/PPM charts
+    nutrient-calculator.js        ← Brand-agnostic nutrient display + Chart.js schedule/PPM charts
     checklist.js                  ← Weekly checklist rendering
     photo-upload.js               ← Client-side resize + Firebase Storage upload
   data/
-    nutrient-schedules.js         ← NUTRIENT_BRANDS registry (GH Flora Trio, extensible)
+    nutrient-schedules.js         ← NUTRIENT_BRANDS registry (5 brands: GH Flora Trio, Fox Farm, AN pH Perfect, GH Maxi, Canna Coco)
+    cultivation-guides.js         ← 5 cultivation guides with week-relevance data
+    env-ranges.js                 ← VPD calculation, optimal env ranges by stage, alert checking
     weekly-checklists.js          ← Checklist templates by week
     grow-stages.js                ← Stage descriptions by plant type
 ```
 
 ### Routes
-- `#/dashboard` — grow list
+- `#/dashboard` — grow list + export/import
 - `#/new` — setup wizard
-- `#/grow/:id` — main grow view
+- `#/grow/:id` — main grow view (nutrients, checklist, tips, env preview)
 - `#/grow/:id/notes` — notes for a grow
 - `#/grow/:id/gallery` — photo gallery for a grow
+- `#/grow/:id/guides` — cultivation guides (deep-linkable via `?guide=id`)
+- `#/grow/:id/environment` — environmental logging with VPD chart
 
 ### Key Patterns
 
@@ -74,11 +82,16 @@ js/
 /users/{uid}/grows/{growId}/notes/{noteId}      ← Categorized notes
 /users/{uid}/grows/{growId}/photos/{photoId}    ← Photo metadata
 /users/{uid}/grows/{growId}/feedingLogs/{logId} ← Feeding log entries
+/users/{uid}/grows/{growId}/envLogs/{logId}     ← Environmental readings
 ```
 
 **Migration** (`migrate.js`): Runs once per user. Migrates old flat localStorage keys and Firestore doc into new multi-grow subcollection structure. Writes `migrationVersion: 1` to prevent re-runs.
 
-**Chart.js:** Loaded via CDN UMD script (`chart.umd.min.js`). Used for nutrient schedule and PPM/EC charts in grow-detail view.
+**Chart.js:** Loaded via CDN UMD script (`chart.umd.min.js` + `chartjs-plugin-annotation`). Used for nutrient schedule, PPM/EC, and environment charts.
+
+**Nutrient brands:** Brand-agnostic system in `nutrient-schedules.js`. Each brand defines `components[]` with `key`/`name`/`color`/`ppmPerUnit`, plus `unit`/`unitLabel`/`supportedMediums`/`autoPhBuffer`. Feeding forms and logs use dynamic component iteration via `getMixingOrder(brand)`.
+
+**Export/import:** `export-import.js` supports JSON grow backup (versioned envelope) and CSV feeding log export. Import validates structure and supports skip/overwrite/duplicate conflict strategies.
 
 ## Conventions
 

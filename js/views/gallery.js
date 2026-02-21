@@ -3,6 +3,7 @@ import store from '../store.js';
 import * as fb from '../firebase.js';
 import { updateNav } from '../components/header.js';
 import { processImage, renderUploadButton } from '../components/photo-upload.js';
+import { escapeHtml, isValidGrowId, showConfirmModal, showToast } from '../utils.js';
 
 const PHOTO_CATEGORIES = [
   { key: 'plant', label: 'Plant' },
@@ -55,13 +56,13 @@ export function render(container, params) {
       </div>
 
       <div id="photoGrid" class="photo-grid">
-        <div class="loading">Loading photos...</div>
+        <div class="loading-spinner-container"><div class="spinner"></div><span>Loading photos...</span></div>
       </div>
 
       <!-- Lightbox -->
-      <div id="lightbox" class="lightbox-overlay hidden">
+      <div id="lightbox" class="lightbox-overlay hidden" role="dialog" aria-modal="true" aria-label="Photo lightbox">
         <div class="lightbox-content">
-          <button id="lightboxClose" class="lightbox-close">&times;</button>
+          <button id="lightboxClose" class="lightbox-close" aria-label="Close lightbox">&times;</button>
           <img id="lightboxImage" src="" alt="">
           <div class="lightbox-info">
             <p id="lightboxCaption"></p>
@@ -76,6 +77,13 @@ export function render(container, params) {
 
 export function init(params) {
   growId = params.id;
+
+  // Validate grow ID
+  if (!isValidGrowId(growId)) {
+    import('../router.js').then(m => m.default.navigate('/dashboard'));
+    return;
+  }
+
   updateNav(growId);
 
   // Upload button
@@ -91,6 +99,15 @@ export function init(params) {
   document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
   document.getElementById('lightbox').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeLightbox();
+  });
+
+  // Delegated click handler for photo grid
+  document.getElementById('photoGrid').addEventListener('click', (e) => {
+    const item = e.target.closest('.photo-grid-item');
+    if (!item) return;
+    const photoId = item.dataset.photoId;
+    const photo = photos.find(p => p.id === photoId);
+    if (photo) openLightbox(photo);
   });
 
   loadPhotos();
@@ -112,38 +129,44 @@ function loadPhotos() {
 async function handleUpload(file, onProgress) {
   const user = fb.getCurrentUser();
   if (!user) {
-    alert('Please sign in to upload photos.');
+    showToast('Please sign in to upload photos.', 'error');
     return;
   }
 
   // Show meta fields
   document.getElementById('uploadMeta').classList.remove('hidden');
 
-  // Process image (resize)
-  const { fullBlob } = await processImage(file);
+  try {
+    // Process image (resize)
+    const { fullBlob } = await processImage(file);
 
-  // Upload to Firebase Storage
-  const fullFile = new File([fullBlob], file.name, { type: 'image/jpeg' });
-  const { url, storagePath } = await fb.uploadPhoto(user.uid, growId, fullFile, onProgress);
+    // Upload to Firebase Storage
+    const fullFile = new File([fullBlob], file.name, { type: 'image/jpeg' });
+    const { url, storagePath } = await fb.uploadPhoto(user.uid, growId, fullFile, onProgress);
 
-  // Create photo document
-  const caption = document.getElementById('photoCaption').value.trim();
-  const week = parseInt(document.getElementById('photoWeek').value) || null;
-  const category = document.getElementById('photoCategory').value;
+    // Create photo document
+    const caption = document.getElementById('photoCaption').value.trim();
+    const week = parseInt(document.getElementById('photoWeek').value) || null;
+    const category = document.getElementById('photoCategory').value;
 
-  await fb.createPhotoDoc(user.uid, growId, {
-    storagePath,
-    url,
-    thumbnailUrl: url, // Using same URL since we resize client-side
-    caption,
-    week,
-    category
-  });
+    await fb.createPhotoDoc(user.uid, growId, {
+      storagePath,
+      url,
+      thumbnailUrl: url, // Using same URL since we resize client-side
+      caption,
+      week,
+      category
+    });
 
-  // Reset meta fields
-  document.getElementById('photoCaption').value = '';
-  document.getElementById('photoWeek').value = '';
-  document.getElementById('uploadMeta').classList.add('hidden');
+    // Reset meta fields
+    document.getElementById('photoCaption').value = '';
+    document.getElementById('photoWeek').value = '';
+    document.getElementById('uploadMeta').classList.add('hidden');
+  } catch (err) {
+    console.error('Photo upload error:', err);
+    showToast('Failed to upload photo. Please try again.', 'error');
+    throw err; // Re-throw so the upload button shows error state
+  }
 }
 
 function renderPhotos() {
@@ -154,8 +177,8 @@ function renderPhotos() {
   if (filterCategory) {
     filtered = filtered.filter(p => p.category === filterCategory);
   }
-  if (filterWeek) {
-    filtered = filtered.filter(p => String(p.week) === filterWeek);
+  if (filterWeek !== '' && filterWeek !== undefined) {
+    filtered = filtered.filter(p => p.week != null && String(p.week) === filterWeek);
   }
 
   filtered.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -165,27 +188,22 @@ function renderPhotos() {
     return;
   }
 
-  container.innerHTML = filtered.map(p => `
-    <div class="photo-grid-item" data-photo-id="${p.id}">
-      <img src="${p.thumbnailUrl || p.url}" alt="${p.caption || 'Photo'}" loading="lazy">
+  container.innerHTML = filtered.map(p => {
+    const alt = p.caption || `${p.category || 'plant'} photo${p.week ? ', week ' + p.week : ''}`;
+    return `
+    <div class="photo-grid-item" data-photo-id="${escapeHtml(p.id)}">
+      <img src="${p.thumbnailUrl || p.url}" alt="${escapeHtml(alt)}" loading="lazy">
       <div class="photo-grid-overlay">
-        <span>${p.caption || ''}</span>
-        ${p.week ? `<span>Week ${p.week}</span>` : ''}
+        <span>${escapeHtml(p.caption || '')}</span>
+        ${p.week ? `<span>Week ${escapeHtml(String(p.week))}</span>` : ''}
       </div>
     </div>
-  `).join('');
-
-  container.querySelectorAll('.photo-grid-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const photoId = item.dataset.photoId;
-      const photo = photos.find(p => p.id === photoId);
-      if (photo) openLightbox(photo);
-    });
-  });
+  `; }).join('');
 }
 
 function openLightbox(photo) {
   document.getElementById('lightboxImage').src = photo.url;
+  document.getElementById('lightboxImage').alt = photo.caption || 'Grow photo';
   document.getElementById('lightboxCaption').textContent = photo.caption || '';
   document.getElementById('lightboxMeta').textContent =
     `${photo.createdAt ? new Date(photo.createdAt).toLocaleDateString() : ''} ${photo.week ? '| Week ' + photo.week : ''} ${photo.category ? '| ' + photo.category : ''}`;
@@ -201,23 +219,28 @@ function closeLightbox() {
 }
 
 async function deletePhoto(photo) {
-  if (!confirm('Delete this photo?')) return;
+  if (!(await showConfirmModal('Delete this photo?', true))) return;
 
-  const user = fb.getCurrentUser();
-  if (user) {
-    // Delete from Storage
-    if (photo.storagePath) {
-      try { await fb.deleteStorageFile(photo.storagePath); } catch (e) { console.error('Storage delete error:', e); }
+  try {
+    const user = fb.getCurrentUser();
+    if (user) {
+      // Delete from Storage
+      if (photo.storagePath) {
+        try { await fb.deleteStorageFile(photo.storagePath); } catch (e) { console.error('Storage delete error:', e); }
+      }
+      // Delete Firestore doc
+      await fb.deletePhotoDoc(user.uid, growId, photo.id);
+    } else {
+      photos = photos.filter(p => p.id !== photo.id);
+      store.set(`grow_${growId}_photos`, photos);
+      renderPhotos();
     }
-    // Delete Firestore doc
-    await fb.deletePhotoDoc(user.uid, growId, photo.id);
-  } else {
-    photos = photos.filter(p => p.id !== photo.id);
-    store.set(`grow_${growId}_photos`, photos);
-    renderPhotos();
-  }
 
-  closeLightbox();
+    closeLightbox();
+  } catch (err) {
+    console.error('Delete photo error:', err);
+    showToast('Failed to delete photo.', 'error');
+  }
 }
 
 export function destroy() {

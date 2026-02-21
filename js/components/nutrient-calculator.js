@@ -15,9 +15,12 @@ export function renderCalculator(container, { week, gallons, medium, brand, plan
     return;
   }
 
-  const isFlush = !schedule.micro && !schedule.gro && !schedule.bloom;
-  const ppmData = calculateEstimatedPpm(schedule, brand, waterBaselinePpm || 0);
+  // Brand-agnostic flush detection — check all components dynamically
   const mixOrder = getMixingOrder(brand);
+  const isFlush = mixOrder.every(comp => !schedule[comp.key]);
+  const ppmData = calculateEstimatedPpm(schedule, brand, waterBaselinePpm || 0);
+  const unitLabel = brandData.unitLabel || 'ml/gal';
+  const unit = brandData.unit || 'ml';
 
   if (isFlush) {
     container.innerHTML = `
@@ -37,13 +40,13 @@ export function renderCalculator(container, { week, gallons, medium, brand, plan
 
   let componentsHtml = '';
   for (const comp of mixOrder) {
-    const mlPerGal = schedule[comp.key] || 0;
-    const totalMl = (mlPerGal * gallons).toFixed(2);
+    const amtPerGal = schedule[comp.key] || 0;
+    const totalAmt = (amtPerGal * gallons).toFixed(2);
     componentsHtml += `
       <div class="nutrient-item" style="border-top: 3px solid ${comp.color}">
         <h4>${comp.name}</h4>
-        <div class="nutrient-amount">${totalMl} ml</div>
-        <p>${mlPerGal} ml per gallon</p>
+        <div class="nutrient-amount">${totalAmt} ${unit}</div>
+        <p>${amtPerGal} ${unitLabel}</p>
       </div>
     `;
   }
@@ -51,6 +54,14 @@ export function renderCalculator(container, { week, gallons, medium, brand, plan
   const phTarget = medium === 'hydro'
     ? (week <= 4 ? '5.5-6.0 (5.8 optimal)' : '6.0-6.5 (6.2-6.3 optimal)')
     : '6.0-6.5';
+
+  let notesHtml = '';
+  if (brandData.notes) {
+    notesHtml = `<p style="margin-top: 8px; color: var(--text-light);"><em>${brandData.notes}</em></p>`;
+  }
+  if (brandData.autoPhBuffer) {
+    notesHtml += `<p style="margin-top: 8px; color: var(--success-color); font-weight: 600;">This nutrient line self-buffers pH. Check pH but adjustments are typically minimal.</p>`;
+  }
 
   container.innerHTML = `
     <div class="nutrient-card">
@@ -62,6 +73,7 @@ export function renderCalculator(container, { week, gallons, medium, brand, plan
          | <strong>Target EC:</strong> ${schedule.ec}</p>
         <p style="margin-top: 8px;"><strong>pH Target:</strong> ${phTarget}</p>
         ${waterBaselinePpm ? `<p style="margin-top: 8px; color: var(--text-light);"><strong>Tap water baseline:</strong> ${waterBaselinePpm} PPM</p>` : ''}
+        ${notesHtml}
       </div>
     </div>
 
@@ -76,12 +88,13 @@ export function renderCalculator(container, { week, gallons, medium, brand, plan
   `;
 }
 
-// Render nutrient schedule chart (ml/gal per component across all weeks)
+// Render nutrient schedule chart (per-unit amounts per component across all weeks)
 export function renderScheduleChart(canvasId, { brand, plantType, medium, photoperiodVegWeeks, currentWeek }) {
   brand = brand || 'gh-flora-trio';
   const brandData = NUTRIENT_BRANDS[brand];
   if (!brandData || typeof Chart === 'undefined') return;
 
+  const unitLabel = brandData.unitLabel || 'ml/gal';
   const totalWeeks = getTotalWeeks(brand, plantType, medium, photoperiodVegWeeks);
   const weeks = [];
   const datasets = {};
@@ -102,18 +115,26 @@ export function renderScheduleChart(canvasId, { brand, plantType, medium, photop
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
+  // Add sr-only data table for accessibility
+  const dsArray = Object.values(datasets);
+  const tableHtml = `<table class="sr-only"><caption>Nutrient Schedule (${unitLabel})</caption>
+    <thead><tr><th scope="col">Week</th>${dsArray.map(d => `<th scope="col">${d.label}</th>`).join('')}</tr></thead>
+    <tbody>${weeks.map((w, i) => `<tr><th scope="row">${w}</th>${dsArray.map(d => `<td>${d.data[i]}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table>`;
+  canvas.insertAdjacentHTML('afterend', tableHtml);
+
   const ctx = canvas.getContext('2d');
   return new Chart(ctx, {
     type: 'line',
     data: {
       labels: weeks,
-      datasets: Object.values(datasets)
+      datasets: dsArray
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        title: { display: true, text: 'Nutrient Schedule (ml/gal)' },
+        title: { display: true, text: `Nutrient Schedule (${unitLabel})` },
         annotation: currentWeek ? {
           annotations: {
             currentLine: {
@@ -125,7 +146,7 @@ export function renderScheduleChart(canvasId, { brand, plantType, medium, photop
         } : undefined
       },
       scales: {
-        y: { beginAtZero: true, title: { display: true, text: 'ml/gal' } }
+        y: { beginAtZero: true, title: { display: true, text: unitLabel } }
       }
     }
   });
@@ -151,6 +172,13 @@ export function renderPpmChart(canvasId, { brand, plantType, medium, photoperiod
 
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
+
+  // Add sr-only data table for accessibility
+  const ppmTableHtml = `<table class="sr-only"><caption>PPM / EC Targets by Week</caption>
+    <thead><tr><th scope="col">Week</th><th scope="col">PPM</th><th scope="col">EC</th></tr></thead>
+    <tbody>${weeks.map((w, i) => `<tr><th scope="row">${w}</th><td>${ppmData[i]}</td><td>${ecData[i]}</td></tr>`).join('')}</tbody>
+  </table>`;
+  canvas.insertAdjacentHTML('afterend', ppmTableHtml);
 
   const ctx = canvas.getContext('2d');
   return new Chart(ctx, {

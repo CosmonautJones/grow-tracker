@@ -5,7 +5,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import {
   getFirestore, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  collection, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp
+  collection, onSnapshot
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import {
   getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject
@@ -227,6 +227,10 @@ export async function getAllFeedingLogs(uid, growId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+export async function updateFeedingLog(uid, growId, logId, data) {
+  return updateDoc(feedingLogDocRef(uid, growId, logId), { ...data, updatedAt: new Date().toISOString() });
+}
+
 export async function deleteFeedingLog(uid, growId, logId) {
   return deleteDoc(feedingLogDocRef(uid, growId, logId));
 }
@@ -235,6 +239,50 @@ export function onAllFeedingLogs(uid, growId, callback) {
   return onSnapshot(feedingLogsCol(uid, growId), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   });
+}
+
+// ── Environment Logs ──
+
+function envLogsCol(uid, growId) {
+  return collection(db, 'users', uid, 'grows', growId, 'envLogs');
+}
+
+function envLogDocRef(uid, growId, logId) {
+  return doc(db, 'users', uid, 'grows', growId, 'envLogs', logId);
+}
+
+export async function createEnvLog(uid, growId, data) {
+  const docRef = await addDoc(envLogsCol(uid, growId), {
+    ...data,
+    createdAt: new Date().toISOString()
+  });
+  return docRef.id;
+}
+
+export async function getAllEnvLogs(uid, growId) {
+  const snap = await getDocs(envLogsCol(uid, growId));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function updateEnvLog(uid, growId, logId, data) {
+  return updateDoc(envLogDocRef(uid, growId, logId), { ...data, updatedAt: new Date().toISOString() });
+}
+
+export async function deleteEnvLog(uid, growId, logId) {
+  return deleteDoc(envLogDocRef(uid, growId, logId));
+}
+
+export function onAllEnvLogs(uid, growId, callback) {
+  return onSnapshot(envLogsCol(uid, growId), (snap) => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+}
+
+// ── Weeks (getAllWeeks export) ──
+
+export async function getAllWeeks(uid, growId) {
+  const snap = await getDocs(weeksCol(uid, growId));
+  return snap.docs.map(d => ({ weekNum: d.id, ...d.data() }));
 }
 
 // ── Firebase Storage (photos) ──
@@ -266,6 +314,35 @@ export function uploadPhoto(uid, growId, file, onProgress) {
 export async function deleteStorageFile(path) {
   const sRef = storageRef(storage, path);
   return deleteObject(sRef);
+}
+
+// ── Delete Grow + All Subcollections ──
+
+export async function deleteGrowWithSubcollections(uid, growId) {
+  // Delete all subcollection docs
+  const subcollections = [
+    { col: notesCol(uid, growId) },
+    { col: feedingLogsCol(uid, growId) },
+    { col: envLogsCol(uid, growId) },
+    { col: weeksCol(uid, growId) },
+    { col: photosCol(uid, growId), hasStorage: true }
+  ];
+
+  for (const sub of subcollections) {
+    const snap = await getDocs(sub.col);
+    for (const d of snap.docs) {
+      if (sub.hasStorage) {
+        const data = d.data();
+        if (data.storagePath) {
+          try { await deleteStorageFile(data.storagePath); } catch (e) { /* ignore missing files */ }
+        }
+      }
+      await deleteDoc(d.ref);
+    }
+  }
+
+  // Delete the grow doc itself
+  await deleteDoc(growDocRef(uid, growId));
 }
 
 // ── Legacy support: get old flat user doc (for migration) ──

@@ -78,6 +78,9 @@ const router = {
       }
     }
 
+    // Remove transition classes from previous view
+    contentEl.classList.remove('view-enter', 'view-active');
+
     // Destroy current view
     if (currentView && typeof currentView.destroy === 'function') {
       try { currentView.destroy(); } catch (e) { console.error('View destroy error:', e); }
@@ -105,6 +108,18 @@ const router = {
     if (typeof view.init === 'function') {
       try { await view.init(params); } catch (e) { console.error('View init error:', e); }
     }
+
+    // Focus management for accessibility
+    contentEl.setAttribute('tabindex', '-1');
+    contentEl.focus({ preventScroll: true });
+
+    // View transition animation
+    contentEl.classList.add('view-enter');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        contentEl.classList.add('view-active');
+      });
+    });
   }
 };
 

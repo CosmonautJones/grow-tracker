@@ -1,45 +1,22 @@
 // Client-side image resize + Firebase Storage upload
+import { showToast } from '../utils.js';
 
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_FULL_SIZE = 1920;
 const MAX_THUMB_SIZE = 400;
 const JPEG_QUALITY = 0.85;
 const THUMB_QUALITY = 0.7;
 
-// Resize an image file using canvas, returns a Blob
-function resizeImage(file, maxSize, quality) {
+// Load an image from a File into an HTMLImageElement
+function loadImage(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
 
     img.onload = () => {
       URL.revokeObjectURL(url);
-
-      let { width, height } = img;
-      if (width > maxSize || height > maxSize) {
-        if (width > height) {
-          height = Math.round(height * maxSize / width);
-          width = maxSize;
-        } else {
-          width = Math.round(width * maxSize / height);
-          height = maxSize;
-        }
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Canvas toBlob failed'));
-        },
-        'image/jpeg',
-        quality
-      );
+      resolve(img);
     };
 
     img.onerror = () => {
@@ -51,10 +28,46 @@ function resizeImage(file, maxSize, quality) {
   });
 }
 
+// Resize an already-loaded image using canvas, returns a Blob
+function resizeFromImage(img, maxSize, quality) {
+  return new Promise((resolve, reject) => {
+    let { width, height } = img;
+    if (width > maxSize || height > maxSize) {
+      if (width > height) {
+        height = Math.round(height * maxSize / width);
+        width = maxSize;
+      } else {
+        width = Math.round(width * maxSize / height);
+        height = maxSize;
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Canvas toBlob failed'));
+      },
+      'image/jpeg',
+      quality
+    );
+  });
+}
+
 // Process an image: return { fullBlob, thumbnailBlob }
+// Decodes the image once and generates both sizes in parallel
 export async function processImage(file) {
-  const fullBlob = await resizeImage(file, MAX_FULL_SIZE, JPEG_QUALITY);
-  const thumbnailBlob = await resizeImage(file, MAX_THUMB_SIZE, THUMB_QUALITY);
+  const img = await loadImage(file);
+  const [fullBlob, thumbnailBlob] = await Promise.all([
+    resizeFromImage(img, MAX_FULL_SIZE, JPEG_QUALITY),
+    resizeFromImage(img, MAX_THUMB_SIZE, THUMB_QUALITY)
+  ]);
   return { fullBlob, thumbnailBlob };
 }
 
@@ -84,6 +97,18 @@ export function renderUploadButton(container, { onUpload }) {
   fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      showToast('Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.', 'error');
+      fileInput.value = '';
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      showToast('File is too large. Maximum size is 20 MB.', 'error');
+      fileInput.value = '';
+      return;
+    }
 
     progressDiv.classList.remove('hidden');
     uploadBtn.disabled = true;

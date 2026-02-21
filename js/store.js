@@ -71,19 +71,6 @@ const store = {
     notify(key, undefined, oldValue);
   },
 
-  // Get all keys matching a prefix
-  getKeysMatching(prefix) {
-    const results = [];
-    const fullPrefix = PREFIX + prefix;
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(fullPrefix)) {
-        results.push(k.slice(PREFIX.length));
-      }
-    }
-    return results;
-  },
-
   // Batch update — sets multiple keys, fires one notification per key
   batch(updates) {
     for (const [key, value] of Object.entries(updates)) {
