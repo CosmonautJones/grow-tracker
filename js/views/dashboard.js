@@ -9,6 +9,7 @@ import { exportAllGrowsAsJson, importFromJson, applyImport } from '../export-imp
 // ngrok static tunnel — Pi camera server (mars-pi) exposed publicly.
 // Local fallback: http://192.168.1.88:8000
 const CAMERA_URL = 'https://cosmonaut-tent.duckdns.org';
+const STREAM_TOKEN = 'VLPB2B5oM-9uYkR6_SeFhaWx2RmXdNaX';
 
 let unsubGrows = null;
 
@@ -21,7 +22,7 @@ export function render(container) {
       </div>
       <div class="live-feed-container" id="feedContainer">
         <img id="tentStream"
-             src="${CAMERA_URL}/stream"
+             src="${CAMERA_URL}/stream?token=${STREAM_TOKEN}"
              alt="Live tent camera"
              class="live-feed-img">
         <div class="feed-offline-placeholder" id="feedOfflinePlaceholder">
