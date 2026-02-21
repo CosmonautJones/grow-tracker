@@ -7,8 +7,8 @@ import { escapeHtml, showToast, showConfirmModal } from '../utils.js';
 import { exportAllGrowsAsJson, importFromJson, applyImport } from '../export-import.js';
 
 // ngrok static tunnel — Pi camera server (mars-pi) exposed publicly.
-// Local fallback: http://192.168.1.88:8080
-const CAMERA_URL = 'https://hyperemotively-photobathic-yajaira.ngrok-free.dev';
+// Local fallback: http://192.168.1.88:8000
+const CAMERA_URL = 'https://cosmonaut-tent.duckdns.org';
 
 let unsubGrows = null;
 
