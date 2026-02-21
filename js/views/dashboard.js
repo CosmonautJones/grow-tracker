@@ -19,11 +19,16 @@ export function render(container) {
         <h2>&#x1f4f7; Live Tent Feed</h2>
         <span class="feed-status" id="feedStatus">Connecting...</span>
       </div>
-      <div class="live-feed-container">
+      <div class="live-feed-container" id="feedContainer">
         <img id="tentStream"
              src="${CAMERA_URL}/stream"
              alt="Live tent camera"
              class="live-feed-img">
+        <div class="feed-offline-placeholder" id="feedOfflinePlaceholder">
+          <span class="feed-offline-icon">&#x1f4f7;</span>
+          <p>Live feed offline</p>
+          <p class="feed-offline-hint">Camera server may be sleeping</p>
+        </div>
       </div>
     </section>
     <section class="dashboard-section">
@@ -54,8 +59,19 @@ export function init() {
   const stream = document.getElementById('tentStream');
   const feedStatus = document.getElementById('feedStatus');
   if (stream) {
-    stream.addEventListener('load', () => { feedStatus.textContent = 'Live'; feedStatus.className = 'feed-status online'; });
-    stream.addEventListener('error', () => { feedStatus.textContent = 'Offline'; feedStatus.className = 'feed-status offline'; });
+    const placeholder = document.getElementById('feedOfflinePlaceholder');
+    stream.addEventListener('load', () => {
+      feedStatus.textContent = 'Live';
+      feedStatus.className = 'feed-status online';
+      stream.style.display = 'block';
+      if (placeholder) placeholder.style.display = 'none';
+    });
+    stream.addEventListener('error', () => {
+      feedStatus.textContent = 'Offline';
+      feedStatus.className = 'feed-status offline';
+      stream.style.display = 'none';
+      if (placeholder) placeholder.style.display = 'flex';
+    });
   }
 
   document.getElementById('newGrowBtn').addEventListener('click', () => {
@@ -201,7 +217,7 @@ function renderGrowCard(grow) {
   }
 
   return `
-    <div class="grow-card" data-grow-id="${escapeHtml(grow.id)}" role="link" tabindex="0">
+    <div class="grow-card grow-card--${grow.status}" data-grow-id="${escapeHtml(grow.id)}" role="link" tabindex="0">
       <div class="grow-card-header">
         <span class="grow-card-icon">${plantIcon}</span>
         <span class="grow-card-status ${statusClass}">${statusText}</span>
