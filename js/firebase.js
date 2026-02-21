@@ -8,7 +8,7 @@ import {
   collection, onSnapshot
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import {
-  getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject
+  getStorage, ref as storageRef, uploadBytesResumable, uploadBytes, getDownloadURL, deleteObject
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 
 const firebaseConfig = {
@@ -311,6 +311,17 @@ export function uploadPhoto(uid, growId, file, onProgress) {
   });
 }
 
+export async function uploadThumbnail(uid, growId, blob) {
+  const timestamp = Date.now();
+  const rand = Math.random().toString(36).slice(2, 8);
+  const path = `users/${uid}/grows/${growId}/thumbs/${timestamp}_${rand}.jpg`;
+  const sRef = storageRef(storage, path);
+
+  const snapshot = await uploadBytes(sRef, blob, { contentType: 'image/jpeg' });
+  const url = await getDownloadURL(snapshot.ref);
+  return { url, storagePath: path };
+}
+
 export async function deleteStorageFile(path) {
   const sRef = storageRef(storage, path);
   return deleteObject(sRef);
@@ -335,6 +346,9 @@ export async function deleteGrowWithSubcollections(uid, growId) {
         const data = d.data();
         if (data.storagePath) {
           try { await deleteStorageFile(data.storagePath); } catch (e) { /* ignore missing files */ }
+        }
+        if (data.thumbStoragePath) {
+          try { await deleteStorageFile(data.thumbStoragePath); } catch (e) { /* ignore missing files */ }
         }
       }
       await deleteDoc(d.ref);

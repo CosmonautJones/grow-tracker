@@ -1152,6 +1152,33 @@ button:disabled {
     margin-bottom: 0;
 }
 
+/* ── Upload Preview ── */
+
+.upload-preview-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.upload-preview-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--border-color);
+}
+
+.upload-preview-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.upload-meta-hint {
+    font-size: 0.88em;
+    color: var(--text-light);
+    margin-bottom: 10px;
+}
+
 /* ── Lightbox ── */
 
 .lightbox-overlay {
@@ -1771,6 +1798,10 @@ button:disabled {
 
 [data-theme="dark"] .gallery-upload-meta {
     background: var(--surface-info);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .upload-preview-img {
     border-color: var(--border-color);
 }
 

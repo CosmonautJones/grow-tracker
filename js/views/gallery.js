@@ -18,6 +18,7 @@ let photos = [];
 let unsubPhotos = null;
 let filterWeek = '';
 let filterCategory = '';
+let pendingProcessResult = null;
 
 export function render(container, params) {
   growId = params.id;
@@ -29,6 +30,7 @@ export function render(container, params) {
       </div>
 
       <div class="gallery-upload-meta hidden" id="uploadMeta">
+        <p class="upload-meta-hint">Add details before confirming the upload.</p>
         <div class="wizard-form-grid">
           <div class="input-group">
             <label>Caption</label>
@@ -86,9 +88,11 @@ export function init(params) {
 
   updateNav(growId);
 
-  // Upload button
+  // Upload button — two-phase: select file, then confirm
   renderUploadButton(document.getElementById('uploadArea'), {
-    onUpload: handleUpload
+    onFileSelected: handleFileSelected,
+    onConfirm: handleConfirmUpload,
+    onCancel: handleUploadCancel
   });
 
   // Filters
@@ -126,33 +130,49 @@ function loadPhotos() {
   }
 }
 
-async function handleUpload(file, onProgress) {
+function handleFileSelected(file) {
   const user = fb.getCurrentUser();
   if (!user) {
     showToast('Please sign in to upload photos.', 'error');
     return;
   }
 
-  // Show meta fields
+  // Show metadata form
   document.getElementById('uploadMeta').classList.remove('hidden');
 
+  // Start image processing optimistically in background
+  pendingProcessResult = processImage(file);
+}
+
+async function handleConfirmUpload(file, onProgress) {
+  const user = fb.getCurrentUser();
+  if (!user) {
+    showToast('Please sign in to upload photos.', 'error');
+    return;
+  }
+
   try {
-    // Process image (resize)
-    const { fullBlob } = await processImage(file);
-
-    // Upload to Firebase Storage
-    const fullFile = new File([fullBlob], file.name, { type: 'image/jpeg' });
-    const { url, storagePath } = await fb.uploadPhoto(user.uid, growId, fullFile, onProgress);
-
-    // Create photo document
+    // Read metadata from form before upload
     const caption = document.getElementById('photoCaption').value.trim();
     const week = parseInt(document.getElementById('photoWeek').value) || null;
     const category = document.getElementById('photoCategory').value;
 
+    // Await the pre-started image processing
+    const { fullBlob, thumbnailBlob } = await pendingProcessResult;
+
+    // Upload full-size image
+    const fullFile = new File([fullBlob], file.name, { type: 'image/jpeg' });
+    const { url, storagePath } = await fb.uploadPhoto(user.uid, growId, fullFile, onProgress);
+
+    // Upload thumbnail (small, no progress tracking needed)
+    const { url: thumbnailUrl, storagePath: thumbStoragePath } = await fb.uploadThumbnail(user.uid, growId, thumbnailBlob);
+
+    // Create photo document with both URLs
     await fb.createPhotoDoc(user.uid, growId, {
       storagePath,
       url,
-      thumbnailUrl: url, // Using same URL since we resize client-side
+      thumbnailUrl,
+      thumbStoragePath,
       caption,
       week,
       category
@@ -162,11 +182,42 @@ async function handleUpload(file, onProgress) {
     document.getElementById('photoCaption').value = '';
     document.getElementById('photoWeek').value = '';
     document.getElementById('uploadMeta').classList.add('hidden');
+    pendingProcessResult = null;
   } catch (err) {
     console.error('Photo upload error:', err);
-    showToast('Failed to upload photo. Please try again.', 'error');
+    showToast(getUploadErrorMessage(err), 'error');
+    pendingProcessResult = null;
     throw err; // Re-throw so the upload button shows error state
   }
+}
+
+function handleUploadCancel() {
+  document.getElementById('photoCaption').value = '';
+  document.getElementById('photoWeek').value = '';
+  document.getElementById('uploadMeta').classList.add('hidden');
+  pendingProcessResult = null;
+}
+
+function getUploadErrorMessage(err) {
+  if (err && err.code) {
+    switch (err.code) {
+      case 'storage/unauthorized':
+        return 'Permission denied. Please check that Firebase Storage is enabled and security rules are configured.';
+      case 'storage/canceled':
+        return 'Upload was cancelled.';
+      case 'storage/quota-exceeded':
+        return 'Storage quota exceeded. Please free up space or upgrade your plan.';
+      case 'storage/unauthenticated':
+        return 'Please sign in to upload photos.';
+      case 'storage/retry-limit-exceeded':
+        return 'Upload timed out. Please check your connection and try again.';
+      case 'storage/invalid-checksum':
+        return 'File was corrupted during upload. Please try again.';
+      default:
+        return 'Failed to upload photo. Please try again.';
+    }
+  }
+  return 'Failed to upload photo. Please try again.';
 }
 
 function renderPhotos() {
@@ -224,9 +275,13 @@ async function deletePhoto(photo) {
   try {
     const user = fb.getCurrentUser();
     if (user) {
-      // Delete from Storage
+      // Delete full-size image from Storage
       if (photo.storagePath) {
         try { await fb.deleteStorageFile(photo.storagePath); } catch (e) { console.error('Storage delete error:', e); }
+      }
+      // Delete thumbnail from Storage
+      if (photo.thumbStoragePath) {
+        try { await fb.deleteStorageFile(photo.thumbStoragePath); } catch (e) { console.error('Thumbnail delete error:', e); }
       }
       // Delete Firestore doc
       await fb.deletePhotoDoc(user.uid, growId, photo.id);
@@ -248,4 +303,5 @@ export function destroy() {
   photos = [];
   filterWeek = '';
   filterCategory = '';
+  pendingProcessResult = null;
 }

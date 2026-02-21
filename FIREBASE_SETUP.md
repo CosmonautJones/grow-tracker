@@ -68,7 +68,39 @@ service cloud.firestore {
 
 **What this does:** Users can only read/write their own data when authenticated.
 
-## Step 5: Configure Your App
+## Step 5: Set Up Firebase Storage
+
+Photo uploads require Firebase Storage. Without this step, gallery uploads will fail.
+
+1. In Firebase Console, go to **Build** → **Storage**
+2. Click "Get started"
+3. Select "Start in **production mode**"
+4. Choose the same region as your Firestore database
+5. Click "Done"
+
+### Set Up Storage Security Rules
+
+1. In Storage, go to the **Rules** tab
+2. Replace the rules with:
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+3. Click "Publish"
+
+**What this does:** Users can only upload/download files within their own `/users/{uid}/` folder.
+
+> **Note:** These rules are also available in the `storage.rules` file in the project root.
+
+## Step 6: Configure Your App
 
 1. Open `index.html` in your project
 2. Find the Firebase configuration section (around line 150)
@@ -85,13 +117,13 @@ const firebaseConfig = {
 };
 ```
 
-## Step 6: Add Authorized Domain
+## Step 7: Add Authorized Domain
 
 1. In Firebase Console, go to **Authentication** → **Settings** → **Authorized domains**
 2. Add your GitHub Pages domain: `cosmonautjones.github.io`
 3. Click "Add"
 
-## Step 7: Deploy
+## Step 8: Deploy
 
 1. Commit your changes:
 ```bash
@@ -144,12 +176,18 @@ If you don't set up Firebase (or aren't signed in):
 - Verify Firebase config values are correct
 - Ensure you're signed in on both devices
 
+### Photo uploads fail or hang
+- Make sure Firebase Storage is enabled (Step 5 above)
+- Check that Storage security rules are published
+- Verify the `storageBucket` value in your Firebase config is correct
+- Check browser console for `storage/unauthorized` or `storage/quota-exceeded` errors
+
 ## Firebase Free Tier Limits
 
 The free "Spark" plan includes:
 - **Firestore:** 50,000 reads/day, 20,000 writes/day
 - **Authentication:** Unlimited users
-- **Storage:** 1 GB
+- **Storage:** 5 GB storage, 1 GB/day downloads
 
 This is MORE than enough for personal use! You'd need to check your app hundreds of times per day to hit limits.
 
