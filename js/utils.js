@@ -1,4 +1,4 @@
-// Shared utilities — escapeHtml, isValidGrowId, showToast, isValidDate, showConfirmModal
+// Shared utilities — escapeHtml, isValidGrowId, showToast, isValidDate, showConfirmModal, showProgressModal
 
 /**
  * Escape HTML special characters to prevent XSS.
@@ -159,4 +159,55 @@ export function showConfirmModal(message, destructive = false) {
 
     document.addEventListener('keydown', onKey);
   });
+}
+
+/**
+ * Show a progress modal for long-running operations (export/import).
+ * @param {string} title — modal heading
+ * @returns {{update(pct: number, msg: string): void, close(): void}}
+ */
+export function showProgressModal(title) {
+  const existing = document.getElementById('progressModal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'progressModal';
+  overlay.className = 'progress-modal-overlay';
+
+  const modal = document.createElement('div');
+  modal.className = 'progress-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', title);
+
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+
+  const barTrack = document.createElement('div');
+  barTrack.className = 'progress-modal-bar-track';
+
+  const barFill = document.createElement('div');
+  barFill.className = 'progress-modal-bar-fill';
+  barFill.style.width = '0%';
+  barTrack.appendChild(barFill);
+
+  const msg = document.createElement('p');
+  msg.className = 'progress-modal-msg';
+  msg.textContent = 'Starting...';
+
+  modal.appendChild(heading);
+  modal.appendChild(barTrack);
+  modal.appendChild(msg);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  return {
+    update(pct, text) {
+      barFill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+      if (text) msg.textContent = text;
+    },
+    close() {
+      overlay.remove();
+    }
+  };
 }

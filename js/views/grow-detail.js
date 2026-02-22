@@ -11,6 +11,7 @@ import { escapeHtml, isValidDate, isValidGrowId, showConfirmModal, showToast } f
 import { getRelevantGuides } from '../data/cultivation-guides.js';
 import { getEnvStageForWeek, checkEnvAlerts, ENV_RANGES } from '../data/env-ranges.js';
 import { exportGrowAsJson, exportFeedingLogsAsCsv } from '../export-import.js';
+import * as photoDb from '../photo-db.js';
 
 let grow = null;
 let growId = null;
@@ -942,6 +943,8 @@ async function handleDeleteGrow() {
     for (const suffix of ['notes', 'feedingLogs', 'envLogs', 'photos']) {
       store.set(`grow_${growId}_${suffix}`, undefined);
     }
+    // Clear IndexedDB photo cache
+    photoDb.clearGrowPhotos(growId).catch(e => console.warn('IndexedDB cleanup error:', e));
     // Clear checklist keys
     const totalWeeks = getTotalWeeks(grow?.nutrientBrand || 'gh-flora-trio', grow?.plantType || 'autoflower', grow?.growMedium || 'hydro', grow?.photoperiodVegWeeks);
     for (let w = 1; w <= totalWeeks; w++) {
@@ -1095,9 +1098,15 @@ function renderRecentNotes(notes) {
 
 // ── Recent Photos Preview ──
 
+let recentPhotoObjectURLs = [];
+
 function renderRecentPhotos(photos) {
   const container = document.getElementById('recentPhotos');
   if (!container) return;
+
+  // Revoke old object URLs
+  for (const url of recentPhotoObjectURLs) URL.revokeObjectURL(url);
+  recentPhotoObjectURLs = [];
 
   if (!photos || photos.length === 0) {
     container.innerHTML = '<p class="text-muted">No photos yet. <a href="#/grow/' + escapeHtml(growId) + '/gallery">Upload one</a></p>';
@@ -1113,11 +1122,53 @@ function renderRecentPhotos(photos) {
         const alt = p.caption || `${p.category || 'plant'} photo${p.week ? ', week ' + p.week : ''}`;
         return `
         <div class="photo-thumb">
-          <img src="${p.thumbnailUrl || p.url}" alt="${escapeHtml(alt)}" loading="lazy">
+          <div class="photo-skeleton"></div>
+          <img data-photo-id="${escapeHtml(p.id)}"
+               data-thumb-url="${escapeHtml(p.thumbnailUrl || p.url || '')}"
+               alt="${escapeHtml(alt)}"
+               loading="lazy"
+               style="display:none;">
         </div>
       `; }).join('')}
     </div>
   `;
+
+  // Load thumbnails — IndexedDB first, then URL fallback
+  container.querySelectorAll('img[data-photo-id]').forEach(img => {
+    const photoId = img.dataset.photoId;
+    const thumbUrl = img.dataset.thumbUrl;
+    const skeleton = img.previousElementSibling;
+
+    loadRecentThumb(img, skeleton, photoId, thumbUrl);
+  });
+}
+
+async function loadRecentThumb(img, skeleton, photoId, fallbackUrl) {
+  const objectUrl = await photoDb.getPhotoObjectURL(photoId, 'thumbnail');
+  if (objectUrl) {
+    recentPhotoObjectURLs.push(objectUrl);
+    img.src = objectUrl;
+    img.onload = () => { skeleton.style.display = 'none'; img.style.display = ''; };
+    img.onerror = () => showRecentBroken(img, skeleton);
+    return;
+  }
+
+  if (fallbackUrl) {
+    img.src = fallbackUrl;
+    img.onload = () => { skeleton.style.display = 'none'; img.style.display = ''; };
+    img.onerror = () => showRecentBroken(img, skeleton);
+  } else {
+    showRecentBroken(img, skeleton);
+  }
+}
+
+function showRecentBroken(img, skeleton) {
+  if (skeleton) skeleton.style.display = 'none';
+  img.style.display = 'none';
+  const placeholder = document.createElement('div');
+  placeholder.className = 'photo-broken';
+  placeholder.innerHTML = '<span class="broken-photo-icon">&#x1f5bc;</span>';
+  img.parentElement.insertBefore(placeholder, img);
 }
 
 // ── Cultivation Tips ──
@@ -1377,6 +1428,10 @@ export function destroy() {
     try { feedingChart.destroy(); } catch (e) { /* ignore */ }
     feedingChart = null;
   }
+  // Revoke recent photo object URLs
+  for (const url of recentPhotoObjectURLs) URL.revokeObjectURL(url);
+  recentPhotoObjectURLs = [];
+
   grow = null;
   growId = null;
   listenersAttached = false;

@@ -4,7 +4,8 @@ import * as fb from '../firebase.js';
 import router from '../router.js';
 import { updateNav } from '../components/header.js';
 import { escapeHtml, showToast, showConfirmModal } from '../utils.js';
-import { exportAllGrowsAsJson, importFromJson, applyImport } from '../export-import.js';
+import { exportAllGrowsAsJson, importFromFile, applyImport } from '../export-import.js';
+import { showProgressModal } from '../utils.js';
 
 // Pi camera server — self-hosted via DuckDNS + Caddy (HTTPS, no auth proxy).
 // Stream is protected by Firebase ID tokens — the signed-in Google user's token
@@ -41,7 +42,7 @@ export function render(container) {
           <button id="newGrowBtn" class="primary-btn">+ Start New Grow</button>
           <button id="exportAllBtn" class="secondary-btn small-btn">Export All</button>
           <button id="importBtn" class="secondary-btn small-btn">Import Backup</button>
-          <input type="file" id="importFileInput" accept=".json" class="hidden">
+          <input type="file" id="importFileInput" accept=".json,.zip" class="hidden">
         </div>
       </div>
       <div id="activeGrows" class="grow-grid">
@@ -117,12 +118,25 @@ export function init() {
     if (!file) return;
 
     try {
-      const { summary, growCount, parsed } = await importFromJson(file);
-      const summaryText = summary.map(s => `${s.strainName} (${s.notesCount} notes, ${s.logsCount} logs)`).join('\n');
-      const confirmed = await showConfirmModal(`Import ${growCount} grow(s)?\n\n${summaryText}\n\nExisting grows with the same ID will be skipped.`);
+      const { summary, growCount, parsed, photoBlobs } = await importFromFile(file);
+      const totalPhotos = summary.reduce((sum, s) => sum + s.photosCount, 0);
+      const photoInfo = totalPhotos > 0 ? `, ${totalPhotos} photo(s)` : '';
+      const summaryText = summary.map(s => `${s.strainName} (${s.notesCount} notes, ${s.logsCount} logs${s.photosCount ? ', ' + s.photosCount + ' photos' : ''})`).join('\n');
+      const confirmed = await showConfirmModal(`Import ${growCount} grow(s)${photoInfo}?\n\n${summaryText}\n\nExisting grows with the same ID will be skipped.`);
       if (!confirmed) return;
 
-      const imported = await applyImport(parsed, 'skip');
+      let progress = null;
+      if (photoBlobs && photoBlobs.size > 0) {
+        progress = showProgressModal('Importing Grows');
+      }
+
+      const imported = await applyImport(parsed, 'skip', photoBlobs, progress ? (pct, msg) => progress.update(pct, msg) : null);
+
+      if (progress) {
+        progress.update(100, 'Done!');
+        setTimeout(() => progress.close(), 500);
+      }
+
       showToast(`Imported ${imported} grow(s).`, 'success');
       // Reload grows
       loadGrows();

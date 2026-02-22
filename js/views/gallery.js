@@ -1,9 +1,10 @@
-// Photo gallery with upload, lightbox, filtering
+// Photo gallery with upload, lightbox, filtering — IndexedDB cache + offline support
 import store from '../store.js';
 import * as fb from '../firebase.js';
 import { updateNav } from '../components/header.js';
 import { processImage, renderUploadButton } from '../components/photo-upload.js';
 import { escapeHtml, isValidGrowId, showConfirmModal, showToast } from '../utils.js';
+import * as photoDb from '../photo-db.js';
 
 const PHOTO_CATEGORIES = [
   { key: 'plant', label: 'Plant' },
@@ -19,6 +20,7 @@ let unsubPhotos = null;
 let filterWeek = '';
 let filterCategory = '';
 let pendingProcessResult = null;
+let activeObjectURLs = [];
 
 export function render(container, params) {
   growId = params.id;
@@ -123,6 +125,7 @@ function loadPhotos() {
     unsubPhotos = fb.onAllPhotos(user.uid, growId, (data) => {
       photos = data;
       renderPhotos();
+      warmPhotoCache(data);
     });
   } else {
     photos = store.get(`grow_${growId}_photos`) || [];
@@ -168,7 +171,7 @@ async function handleConfirmUpload(file, onProgress) {
     const { url: thumbnailUrl, storagePath: thumbStoragePath } = await fb.uploadThumbnail(user.uid, growId, thumbnailBlob);
 
     // Create photo document with both URLs
-    await fb.createPhotoDoc(user.uid, growId, {
+    const photoDocId = await fb.createPhotoDoc(user.uid, growId, {
       storagePath,
       url,
       thumbnailUrl,
@@ -177,6 +180,13 @@ async function handleConfirmUpload(file, onProgress) {
       week,
       category
     });
+
+    // Cache blobs in IndexedDB (write-through)
+    if (photoDocId) {
+      photoDb.savePhoto(photoDocId, growId, fullBlob, thumbnailBlob).catch(e => {
+        console.warn('IndexedDB cache write failed:', e);
+      });
+    }
 
     // Reset meta fields
     document.getElementById('photoCaption').value = '';
@@ -239,22 +249,88 @@ function renderPhotos() {
     return;
   }
 
+  // Revoke old object URLs
+  revokeObjectURLs();
+
+  // Render skeleton placeholders first
   container.innerHTML = filtered.map(p => {
     const alt = p.caption || `${p.category || 'plant'} photo${p.week ? ', week ' + p.week : ''}`;
     return `
     <div class="photo-grid-item" data-photo-id="${escapeHtml(p.id)}">
-      <img src="${p.thumbnailUrl || p.url}" alt="${escapeHtml(alt)}" loading="lazy">
+      <div class="photo-skeleton"></div>
+      <img data-photo-id="${escapeHtml(p.id)}"
+           data-thumb-url="${escapeHtml(p.thumbnailUrl || p.url || '')}"
+           alt="${escapeHtml(alt)}"
+           loading="lazy"
+           style="display:none;">
       <div class="photo-grid-overlay">
         <span>${escapeHtml(p.caption || '')}</span>
         ${p.week ? `<span>Week ${escapeHtml(String(p.week))}</span>` : ''}
       </div>
     </div>
   `; }).join('');
+
+  // Load thumbnails — IndexedDB first, then URL fallback
+  container.querySelectorAll('img[data-photo-id]').forEach(img => {
+    const photoId = img.dataset.photoId;
+    const thumbUrl = img.dataset.thumbUrl;
+    const skeleton = img.previousElementSibling;
+
+    loadThumbnail(img, skeleton, photoId, thumbUrl);
+  });
 }
 
-function openLightbox(photo) {
-  document.getElementById('lightboxImage').src = photo.url;
-  document.getElementById('lightboxImage').alt = photo.caption || 'Grow photo';
+async function loadThumbnail(img, skeleton, photoId, fallbackUrl) {
+  // Try IndexedDB first
+  const objectUrl = await photoDb.getPhotoObjectURL(photoId, 'thumbnail');
+  if (objectUrl) {
+    activeObjectURLs.push(objectUrl);
+    img.src = objectUrl;
+    img.onload = () => { skeleton.style.display = 'none'; img.style.display = ''; };
+    img.onerror = () => showBrokenPlaceholder(img, skeleton);
+    return;
+  }
+
+  // Fallback to URL
+  if (fallbackUrl) {
+    img.src = fallbackUrl;
+    img.onload = () => { skeleton.style.display = 'none'; img.style.display = ''; };
+    img.onerror = () => showBrokenPlaceholder(img, skeleton);
+  } else {
+    showBrokenPlaceholder(img, skeleton);
+  }
+}
+
+function showBrokenPlaceholder(img, skeleton) {
+  if (skeleton) skeleton.style.display = 'none';
+  img.style.display = 'none';
+  const placeholder = document.createElement('div');
+  placeholder.className = 'photo-broken';
+  placeholder.innerHTML = '<span class="broken-photo-icon">&#x1f5bc;</span>';
+  img.parentElement.insertBefore(placeholder, img);
+}
+
+async function openLightbox(photo) {
+  const lightboxImg = document.getElementById('lightboxImage');
+  lightboxImg.alt = photo.caption || 'Grow photo';
+
+  // Try IndexedDB full-size first
+  const objectUrl = await photoDb.getPhotoObjectURL(photo.id, 'full');
+  if (objectUrl) {
+    activeObjectURLs.push(objectUrl);
+    lightboxImg.src = objectUrl;
+  } else {
+    lightboxImg.src = photo.url || '';
+  }
+
+  lightboxImg.onerror = () => {
+    lightboxImg.style.display = 'none';
+    // Show fallback text
+    const info = document.getElementById('lightboxCaption');
+    if (info) info.textContent = (photo.caption || '') + ' (Image unavailable)';
+  };
+  lightboxImg.onload = () => { lightboxImg.style.display = ''; };
+
   document.getElementById('lightboxCaption').textContent = photo.caption || '';
   document.getElementById('lightboxMeta').textContent =
     `${photo.createdAt ? new Date(photo.createdAt).toLocaleDateString() : ''} ${photo.week ? '| Week ' + photo.week : ''} ${photo.category ? '| ' + photo.category : ''}`;
@@ -291,6 +367,9 @@ async function deletePhoto(photo) {
       renderPhotos();
     }
 
+    // Clean up IndexedDB cache
+    photoDb.deletePhoto(photo.id).catch(e => console.warn('IndexedDB delete error:', e));
+
     closeLightbox();
   } catch (err) {
     console.error('Delete photo error:', err);
@@ -298,8 +377,44 @@ async function deletePhoto(photo) {
   }
 }
 
+/**
+ * Background cache warming — fetch and cache any un-cached photos to IndexedDB.
+ */
+async function warmPhotoCache(photosList) {
+  for (const photo of photosList) {
+    try {
+      const exists = await photoDb.hasPhoto(photo.id);
+      if (exists) continue;
+
+      let fullBlob = null;
+      let thumbBlob = null;
+
+      if (photo.url) {
+        try { fullBlob = await fetch(photo.url).then(r => r.ok ? r.blob() : null); } catch (e) { /* skip */ }
+      }
+      if (photo.thumbnailUrl) {
+        try { thumbBlob = await fetch(photo.thumbnailUrl).then(r => r.ok ? r.blob() : null); } catch (e) { /* skip */ }
+      }
+
+      if (fullBlob || thumbBlob) {
+        await photoDb.savePhoto(photo.id, growId, fullBlob, thumbBlob);
+      }
+    } catch (e) {
+      // Non-critical — don't block on cache failures
+    }
+  }
+}
+
+function revokeObjectURLs() {
+  for (const url of activeObjectURLs) {
+    URL.revokeObjectURL(url);
+  }
+  activeObjectURLs = [];
+}
+
 export function destroy() {
   if (unsubPhotos) { unsubPhotos(); unsubPhotos = null; }
+  revokeObjectURLs();
   photos = [];
   filterWeek = '';
   filterCategory = '';

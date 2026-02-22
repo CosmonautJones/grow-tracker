@@ -1,5 +1,5 @@
 // Service Worker — Grow Tracker offline support
-const CACHE_VERSION = 'grow-tracker-v1';
+const CACHE_VERSION = 'grow-tracker-v2';
 
 // App shell files to pre-cache
 const APP_SHELL = [
@@ -29,11 +29,13 @@ const APP_SHELL = [
   './js/data/cultivation-guides.js',
   './js/data/env-ranges.js',
   './js/data/weekly-checklists.js',
-  './js/data/grow-stages.js'
+  './js/data/grow-stages.js',
+  './js/photo-db.js'
 ];
 
 // CDN resources to cache on first load
 const CDN_URLS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js',
   'https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js'
 ];
@@ -103,7 +105,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // CDN resources — cache-first
-  if (url.hostname.includes('cdn.jsdelivr.net')) {
+  if (url.hostname.includes('cdn.jsdelivr.net') || url.hostname.includes('cdnjs.cloudflare.com')) {
     event.respondWith(
       caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
         if (response.ok) {
