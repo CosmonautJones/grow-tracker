@@ -15,7 +15,7 @@ const autoflowerStages = {
   },
   4: {
     name: 'Late Vegetative',
-    description: 'Vegetative growth. Rapid leaf and stem development. Increase feeding gradually. Good time for LST. Watch for pre-flowers.'
+    description: 'Plant reaching mature vegetative size. Peak nutrient uptake. Final chance for LST adjustments. Pre-flowers may show sex — watch for pistils (female) vs pollen sacs (male).'
   },
   5: {
     name: 'Pre-Flowering / Transition',

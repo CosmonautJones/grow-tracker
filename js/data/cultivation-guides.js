@@ -152,7 +152,7 @@ export const CULTIVATION_GUIDES = [
     id: 'deficiencies',
     title: 'Common Deficiency Identification',
     icon: '&#x1fa7a;',
-    summary: 'Identify and fix nitrogen, phosphorus, potassium, calcium, and magnesium deficiencies by their leaf symptoms.',
+    summary: 'Identify and fix nitrogen, phosphorus, potassium, calcium, magnesium, iron, sulfur, zinc, and manganese deficiencies by their leaf symptoms.',
     applicablePlantTypes: ['autoflower', 'photoperiod'],
     relevantWeeks: {
       autoflower: { start: 2, end: 10, peak: 5 },
@@ -204,6 +204,210 @@ export const CULTIVATION_GUIDES = [
           'Common cause: Low pH lockout, using RO/distilled water without CalMag.',
           'Fix: Add CalMag or Epsom salt (1 tsp/gal). Raise pH if below 6.0.'
         ]
+      },
+      {
+        title: 'Iron (Fe) Deficiency',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Interveinal chlorosis on NEW growth (youngest leaves). Veins stay green while leaf tissue yellows. Unlike magnesium, iron deficiency affects the top of the plant first.',
+          'Common cause: High pH (above 6.5 in soil, above 6.2 in hydro/coco). Iron becomes unavailable at high pH even if present.',
+          'Fix: Lower pH to 6.0-6.5 in soil or 5.5-6.0 in hydro/coco. Foliar spray with chelated iron for fast correction. Check for overwatering, which reduces root uptake.'
+        ]
+      },
+      {
+        title: 'Sulfur (S) Deficiency',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Uniform yellowing of new leaves (entire leaf, not interveinal). Thin, woody stems. Slow overall growth. Rare but can occur.',
+          'Common cause: Using coco coir with low-sulfur nutrients, very soft or RO water, or heavily leached soil.',
+          'Fix: Most base nutrients contain sufficient sulfur. If using RO water, ensure your nutrient line includes sulfur. Epsom salt (magnesium sulfate) also provides sulfur.'
+        ]
+      },
+      {
+        title: 'Zinc (Zn) Deficiency',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Stunted new growth with short internodes. Small, thin, twisted new leaves. Interveinal chlorosis on young leaves. Leaf tips may die.',
+          'Common cause: High pH (above 7.0), overuse of phosphorus (competes with zinc uptake), or alkaline water.',
+          'Fix: Lower pH to optimal range. Reduce phosphorus if excessive. Most quality nutrient lines contain adequate zinc. Zinc sulfate foliar spray for immediate relief.'
+        ]
+      },
+      {
+        title: 'Manganese (Mn) Deficiency',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Interveinal chlorosis with scattered brown necrotic spots. Affects newer leaves. Often confused with calcium deficiency, but manganese shows more defined spotting pattern.',
+          'Common cause: High pH (above 6.5), overwatering, or high iron levels that compete with manganese uptake.',
+          'Fix: Lower pH to 6.0-6.5 in soil or 5.5-6.0 in hydro. Ensure proper drainage. Most balanced nutrient lines contain adequate manganese.'
+        ]
+      },
+      {
+        title: 'Quick Reference Chart',
+        type: 'table',
+        columns: ['Deficiency', 'Affects', 'Key Symptom', 'Common Fix'],
+        rows: [
+          ['Nitrogen (N)', 'Old leaves first', 'Yellowing from tips', 'Increase N nutrients'],
+          ['Phosphorus (P)', 'Old leaves', 'Dark leaves, purple stems', 'Check pH, increase P'],
+          ['Potassium (K)', 'Old leaves', 'Brown leaf edges', 'Check drainage, increase K'],
+          ['Calcium (Ca)', 'New growth', 'Brown spots, curled leaves', 'Add CalMag, check pH'],
+          ['Magnesium (Mg)', 'Old leaves', 'Yellow between green veins', 'CalMag or Epsom salt'],
+          ['Iron (Fe)', 'New growth', 'Yellow between green veins', 'Lower pH below 6.5'],
+          ['Sulfur (S)', 'New growth', 'Uniform leaf yellowing', 'Check nutrient sulfur content'],
+          ['Zinc (Zn)', 'New growth', 'Stunted, twisted leaves', 'Lower pH, reduce excess P'],
+          ['Manganese (Mn)', 'New growth', 'Chlorosis with brown spots', 'Lower pH, fix drainage']
+        ]
+      },
+      {
+        title: 'Optimal pH Ranges by Medium',
+        type: 'ph-range',
+        ranges: [
+          { medium: 'Soil', min: 6.0, max: 7.0 },
+          { medium: 'Coco Coir', min: 5.5, max: 6.5 },
+          { medium: 'Hydro (DWC)', min: 5.5, max: 6.2 },
+          { medium: 'Hydro (Ebb & Flow)', min: 5.5, max: 6.5 },
+          { medium: 'Aeroponics', min: 5.5, max: 6.0 }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'toxicities',
+    title: 'Nutrient Toxicity & Burn',
+    icon: '&#x1f525;',
+    summary: 'Identify and fix nutrient burn, nitrogen toxicity, pH lockout, and light stress — common issues from overfeeding.',
+    applicablePlantTypes: ['autoflower', 'photoperiod'],
+    relevantWeeks: {
+      autoflower: { start: 2, end: 10, peak: 6 },
+      photoperiod: { start: 2, end: 14, peak: 7 }
+    },
+    sections: [
+      {
+        title: 'Nitrogen Toxicity',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Very dark green leaves with a glossy sheen. Leaf tips curl downward ("the claw"). Slow growth despite lush appearance. Stems may weaken.',
+          'Common cause: Overfeeding nitrogen-heavy nutrients in veg, using hot soil (too much pre-amendment), or not reducing N when transitioning to flower.',
+          'Fix: Flush medium with plain pH-balanced water (3x pot volume). Reduce nitrogen in next feeding by 25-50%. Switch to bloom nutrients if in flower.',
+          'Note: Nitrogen toxicity is the most common toxicity in cannabis growing. Many beginners overfeed trying to speed up growth.'
+        ]
+      },
+      {
+        title: 'Nutrient Burn',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Brown, crispy leaf tips that progress inward along leaf edges. Affects ALL leaves uniformly, not just old or new growth. Tips look "burnt."',
+          'Common cause: Overall EC/PPM too high. Adding too much of all nutrients, not just one. Common with concentrated liquid nutrients or when not measuring properly.',
+          'Fix: Flush with plain water. Reduce next feeding strength by 25-50%. Check and calibrate EC/PPM meter. Start at lower strength and increase gradually.',
+          'Prevention: Always start at 50% manufacturer strength and increase based on plant response. Measure EC/PPM of runoff — if runoff EC is much higher than input, reduce feeding.'
+        ]
+      },
+      {
+        title: 'pH Lockout',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Looks like deficiency symptoms even when feeding adequate nutrients. Multiple deficiency signs appearing simultaneously is the key indicator.',
+          'Common cause: pH too high or too low. The #1 cause of "deficiency" symptoms in cannabis. Different nutrients become unavailable at different pH ranges.',
+          'Fix: Test pH of input water AND runoff. Adjust input pH to correct range: soil 6.0-7.0, coco 5.5-6.5, hydro 5.5-6.2. Flush if necessary to reset the medium.',
+          'Note: Always check pH before adding more nutrients. Adding nutrients to fix a "deficiency" that is actually pH lockout will make the problem worse.'
+        ]
+      },
+      {
+        title: 'Light Burn vs Nutrient Burn',
+        type: 'paragraphs',
+        content: [
+          'Light burn and nutrient burn are often confused. Here is how to tell them apart:',
+          'Light burn: Affects the TOP leaves closest to the light. Leaves bleach or yellow from the top down. Lower leaves remain healthy. Buds may foxtail (grow elongated).',
+          'Nutrient burn: Affects leaf TIPS uniformly across the plant. Brown, crispy tips progress inward. Both top and bottom leaves are affected equally.',
+          'Combined: If only the top leaves have burnt tips AND they are also yellowing, you may have both issues. Raise the light AND reduce nutrients.',
+          'Fix for light burn: Raise lights 6-12 inches or reduce intensity/dimmer setting. Most LED manufacturers recommend 18-24 inches for flowering.'
+        ]
+      },
+      {
+        title: 'Quick Reference',
+        type: 'table',
+        columns: ['Issue', 'Key Indicator', 'First Step'],
+        rows: [
+          ['Nitrogen Toxicity', 'Dark clawing leaves', 'Flush and reduce N'],
+          ['Nutrient Burn', 'Burnt tips on all leaves', 'Flush and reduce EC'],
+          ['pH Lockout', 'Multiple deficiency signs', 'Check and correct pH'],
+          ['Light Burn', 'Top leaves bleaching', 'Raise or dim lights']
+        ]
+      }
+    ]
+  },
+  {
+    id: 'pests',
+    title: 'Pest & Disease Prevention',
+    icon: '&#x1f41b;',
+    summary: 'Identify, prevent, and treat common pests and diseases — spider mites, fungus gnats, powdery mildew, and bud rot.',
+    applicablePlantTypes: ['autoflower', 'photoperiod'],
+    relevantWeeks: {
+      autoflower: { start: 1, end: 10, peak: 5 },
+      photoperiod: { start: 1, end: 14, peak: 6 }
+    },
+    sections: [
+      {
+        title: 'Spider Mites',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Tiny white or yellow specks on leaf tops. Fine webbing on leaf undersides and between branches (advanced infestation). Leaves become stippled, then bronze and die.',
+          'Prevention: Maintain humidity above 40% (they thrive in dry conditions). Inspect leaf undersides weekly with a magnifier. Quarantine any new plants for 1-2 weeks.',
+          'Treatment: Neem oil spray (during veg only — never in flower). Insecticidal soap. Predatory mites (Phytoseiulus persimilis). For severe infestations, remove heavily affected leaves.',
+          'Warning: Spider mites reproduce every 3-5 days. Treat aggressively at first sign. Multiple treatments are needed — eggs are resistant to most sprays.'
+        ]
+      },
+      {
+        title: 'Fungus Gnats',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Small black flies buzzing around soil surface. Larvae (tiny white worms) in top inch of soil. Slow growth, wilting despite adequate watering.',
+          'Prevention: Allow top inch of soil to dry between waterings. Use fabric pots for better drainage. Avoid overwatering — gnats breed in consistently wet conditions.',
+          'Treatment: Yellow sticky traps for adult gnats. Let soil dry out more between waterings. Top-dress with sand or diatomaceous earth. Mosquito bits (BTi) in water — safe and very effective.',
+          'Note: Fungus gnats are more of a nuisance than a serious threat in small numbers. Larvae can damage seedling roots but rarely harm established plants.'
+        ]
+      },
+      {
+        title: 'Powdery Mildew',
+        type: 'deficiency',
+        content: [
+          'Symptoms: White, powdery patches on leaf surfaces. Starts as small circles and spreads. Leaves may curl, yellow, and die. Affects any part of the plant.',
+          'Prevention: Maintain good airflow (oscillating fan). Keep humidity below 60% in flower. Avoid crowding plants. Defoliate to improve air circulation.',
+          'Treatment: Remove affected leaves immediately. Milk spray (40% milk, 60% water) as a preventive. Potassium bicarbonate spray. Neem oil in veg. Improve ventilation.',
+          'Warning: Powdery mildew spores are systemic — they spread to buds. Buds with PM should not be consumed. Prevention is far easier than cure.'
+        ]
+      },
+      {
+        title: 'Bud Rot (Botrytis)',
+        type: 'deficiency',
+        content: [
+          'Symptoms: Gray-brown mold inside dense buds. Affected buds turn mushy and dark. Surrounding sugar leaves yellow and pull away easily. Often noticed late.',
+          'Prevention: Keep humidity below 50% during late flower. Ensure strong airflow through and around canopy. Avoid wet buds — no foliar spraying in flower.',
+          'Treatment: Carefully remove ALL affected buds with clean scissors — cut well past the visible mold. Do NOT compost infected material. Increase airflow immediately.',
+          'Warning: Bud rot is the most devastating late-flower problem. It can destroy an entire harvest in days. Dense indica-dominant buds are most susceptible. Harvest early if it is spreading.'
+        ]
+      },
+      {
+        title: 'Prevention Checklist',
+        type: 'steps',
+        content: [
+          'Inspect plants daily — check leaf tops, undersides, stems, and soil surface.',
+          'Maintain proper airflow with oscillating fans. Air should gently move all leaves.',
+          'Control humidity: 60-70% seedling/veg, 40-50% flower, below 50% late flower.',
+          'Keep grow space clean — remove dead leaves, clean spills, sterilize tools between plants.',
+          'Quarantine any new plants or clones for 1-2 weeks before introducing to your grow.',
+          'Monitor temperature: pests thrive in heat (above 85\u00b0F). Keep temps 70-80\u00b0F.',
+          'Use preventive sprays (neem oil, insecticidal soap) during veg — never during flower.'
+        ]
+      },
+      {
+        title: 'Treatment Safety',
+        type: 'warnings',
+        content: [
+          'Never spray pesticides or fungicides on buds during flower — residues are inhaled when smoked.',
+          'Neem oil is safe for veg but should not be used within 2 weeks of harvest.',
+          'When using any spray, test on one leaf first and wait 24 hours to check for burn.',
+          'Biological controls (predatory mites, BTi) are the safest options for flower.'
+        ]
       }
     ]
   },
@@ -242,7 +446,7 @@ export const CULTIVATION_GUIDES = [
         type: 'steps',
         content: [
           'Hang branches upside down in a dark room with good airflow (not blowing directly on buds).',
-          'Target: 60°F (15°C) temperature and 60% humidity ("60/60 rule"). Range: 55-65°F, 55-65% RH.',
+          'Target: 60\u00b0F (15\u00b0C) temperature and 60% humidity ("60/60 rule"). Range: 55-65\u00b0F, 55-65% RH.',
           'Ensure complete darkness — light degrades THC.',
           'Drying should take 7-14 days. Do NOT speed-dry with fans or heat.',
           'Buds are ready when small stems snap cleanly instead of bending. Outer buds should feel dry but not crispy.'
@@ -253,11 +457,33 @@ export const CULTIVATION_GUIDES = [
         type: 'steps',
         content: [
           'Trim buds (if dry trimming) and place loosely in glass mason jars — fill 75% full.',
-          'Store jars in a cool, dark place. Target 60-65°F, 58-62% humidity inside jars.',
+          'Store jars in a cool, dark place. Target 60-65\u00b0F, 58-62% humidity inside jars.',
           'Week 1: "Burp" jars (open lids) for 15-30 minutes, 2-3 times daily. Check for ammonia smell (too wet).',
           'Week 2-3: Reduce burping to once daily for 10-15 minutes.',
           'Week 4+: Burp once every few days. Cure for minimum 2 weeks, ideally 4-8 weeks.',
           'Use Boveda 62% humidity packs to maintain optimal moisture without guesswork.'
+        ]
+      },
+      {
+        title: 'Drying & Curing Targets',
+        type: 'table',
+        columns: ['Phase', 'Temperature', 'Humidity', 'Duration'],
+        rows: [
+          ['Drying', '55-65\u00b0F (13-18\u00b0C)', '55-65% RH', '7-14 days'],
+          ['Curing (Week 1)', '60-65\u00b0F (15-18\u00b0C)', '58-62% RH', 'Burp 2-3x daily'],
+          ['Curing (Week 2-4)', '60-65\u00b0F (15-18\u00b0C)', '58-62% RH', 'Burp 1x daily'],
+          ['Long-term Storage', '60-65\u00b0F (15-18\u00b0C)', '58-62% RH', 'Burp weekly']
+        ]
+      },
+      {
+        title: 'Trichome Color Guide',
+        type: 'table',
+        columns: ['Trichome Color', 'Ripeness', 'Expected Effect'],
+        rows: [
+          ['Clear/Transparent', 'Immature', 'Weak potency, racy/anxious high'],
+          ['Milky/Cloudy', 'Peak THC', 'Strongest psychoactive effect, euphoric'],
+          ['Amber', 'Degrading to CBN', 'More sedative, body-heavy, couch-lock'],
+          ['Mixed (70% milky, 20% amber)', 'Most popular harvest', 'Balanced head/body effect']
         ]
       },
       {

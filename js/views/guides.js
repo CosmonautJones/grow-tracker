@@ -129,6 +129,28 @@ function renderSection(section) {
     case 'deficiency':
       contentHtml = section.content.map(line => `<p class="guide-deficiency-line">${escapeHtml(line)}</p>`).join('');
       break;
+    case 'table':
+      contentHtml = `<div class="guide-table-wrapper"><table class="guide-table">
+        <thead><tr>${section.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
+        <tbody>${section.rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>`;
+      break;
+    case 'ph-range':
+      contentHtml = `<div class="ph-range-visual">
+        ${section.ranges.map(r => `
+          <div class="ph-range-row">
+            <span class="ph-range-label">${escapeHtml(r.medium)}</span>
+            <div class="ph-range-bar-track">
+              <div class="ph-range-bar-fill" style="left:${((r.min - 4.5) / 3.5) * 100}%;width:${((r.max - r.min) / 3.5) * 100}%"></div>
+            </div>
+            <span class="ph-range-values">${r.min} — ${r.max}</span>
+          </div>
+        `).join('')}
+        <div class="ph-range-axis">
+          ${[4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0].map(v => `<span>${v}</span>`).join('')}
+        </div>
+      </div>`;
+      break;
     default:
       contentHtml = section.content.map(p => `<p>${escapeHtml(p)}</p>`).join('');
   }

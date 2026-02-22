@@ -1482,6 +1482,19 @@ button:disabled {
         width: 100%;
     }
 
+    .guide-table {
+        font-size: 0.82em;
+    }
+
+    .ph-range-label {
+        min-width: 48px;
+        font-size: 0.82em;
+    }
+
+    .ph-range-axis {
+        padding: 0 48px 0 60px;
+    }
+
     .env-ranges-grid {
         grid-template-columns: 1fr 1fr;
     }
@@ -2025,6 +2038,27 @@ button:disabled {
     border-bottom-color: var(--border-color);
 }
 
+[data-theme="dark"] .guide-table th {
+    background: var(--surface-accent);
+    border-bottom-color: var(--accent-color);
+}
+
+[data-theme="dark"] .guide-table tbody tr:nth-child(even) {
+    background: var(--surface-subtle);
+}
+
+[data-theme="dark"] .guide-table tbody tr:hover {
+    background: var(--surface-accent);
+}
+
+[data-theme="dark"] .ph-range-visual {
+    background: var(--surface-subtle);
+}
+
+[data-theme="dark"] .ph-range-bar-track {
+    background: var(--border-color);
+}
+
 [data-theme="dark"] .tip-card {
     background: var(--surface-accent);
     border-color: var(--border-color);
@@ -2304,6 +2338,103 @@ button:disabled {
 
 .guide-deficiency-line:last-child {
     border-bottom: none;
+}
+
+/* ── Guide Tables ── */
+
+.guide-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 10px 0;
+}
+
+.guide-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88em;
+    min-width: 400px;
+}
+
+.guide-table th {
+    background: var(--surface-accent);
+    color: var(--text-dark);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--accent-color);
+    white-space: nowrap;
+}
+
+.guide-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-dark);
+    line-height: 1.4;
+}
+
+.guide-table tbody tr:nth-child(even) {
+    background: var(--surface-subtle);
+}
+
+.guide-table tbody tr:hover {
+    background: var(--surface-accent);
+}
+
+/* ── pH Range Visual ── */
+
+.ph-range-visual {
+    margin: 12px 0;
+    padding: 14px;
+    background: var(--surface-subtle);
+    border-radius: var(--radius-md);
+}
+
+.ph-range-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.ph-range-label {
+    font-weight: 600;
+    font-size: 0.88em;
+    color: var(--text-dark);
+    min-width: 60px;
+}
+
+.ph-range-bar-track {
+    flex: 1;
+    height: 14px;
+    background: var(--border-color);
+    border-radius: 7px;
+    position: relative;
+    overflow: hidden;
+}
+
+.ph-range-bar-fill {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+    border-radius: 7px;
+}
+
+.ph-range-values {
+    font-size: 0.82em;
+    font-weight: 600;
+    color: var(--text-light);
+    min-width: 70px;
+    text-align: right;
+}
+
+.ph-range-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding: 0 60px 0 72px;
+    font-size: 0.72em;
+    color: var(--text-light);
 }
 
 /* ── Cultivation Tip Cards (grow-detail) ── */

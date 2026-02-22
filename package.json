@@ -4,7 +4,14 @@
   "description": "A comprehensive web-based tracking application for autoflower cannabis cultivation using General Hydroponics Flora Trio nutrients.",
   "main": "js/app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:ui": "npx playwright test --ui",
+    "test:mobile": "npx playwright test --project=mobile-small --project=mobile-large",
+    "test:dark": "npx playwright test --project=desktop-dark",
+    "test:auth-setup": "npx playwright test tests/setup/auth.setup.js --headed --project=desktop-light",
+    "test:report": "npx playwright show-report",
+    "serve": "npx serve -l 3000 --no-clipboard"
   },
   "repository": {
     "type": "git",
@@ -16,5 +23,8 @@
   "bugs": {
     "url": "https://github.com/CosmonautJones/grow-tracker/issues"
   },
-  "homepage": "https://github.com/CosmonautJones/grow-tracker#readme"
+  "homepage": "https://github.com/CosmonautJones/grow-tracker#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
 }
