@@ -246,6 +246,12 @@ export async function applyImport(parsedData, strategy = 'skip') {
             await fb.createEnvLog(user.uid, targetId, logData);
           }
         }
+        if (growData.photos) {
+          for (const photo of growData.photos) {
+            const { id, ...photoData } = photo;
+            await fb.createPhotoDoc(user.uid, targetId, photoData);
+          }
+        }
       } else {
         // Local storage import
         const grows = store.get('grows') || {};
@@ -261,6 +267,9 @@ export async function applyImport(parsedData, strategy = 'skip') {
         }
         if (growData.envLogs) {
           store.set(`grow_${targetId}_envLogs`, growData.envLogs.map(l => ({ ...l, id: l.id || 'env_' + Date.now() + Math.random() })));
+        }
+        if (growData.photos) {
+          store.set(`grow_${targetId}_photos`, growData.photos.map(p => ({ ...p, id: p.id || 'photo_' + Date.now() + Math.random() })));
         }
       }
       imported++;
