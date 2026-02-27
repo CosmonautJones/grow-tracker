@@ -5,10 +5,10 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import {
   getFirestore, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  collection, onSnapshot
+  collection, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import {
-  getStorage, ref as storageRef, uploadBytesResumable, uploadBytes, getDownloadURL, deleteObject
+  getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 
 const firebaseConfig = {
@@ -59,14 +59,13 @@ export async function setUserDoc(uid, data) {
   return setDoc(userDocRef(uid), { ...data, updatedAt: new Date().toISOString() }, { merge: true });
 }
 
-function snapshotErrorHandler(context) {
-  return (error) => console.error(`Firestore listener error (${context}):`, error);
-}
-
 export function onUserDoc(uid, callback) {
   return onSnapshot(userDocRef(uid), (snap) => {
     callback(snap.exists() ? { id: snap.id, ...snap.data() } : null);
-  }, snapshotErrorHandler('userDoc'));
+  }, (err) => {
+    console.error('onUserDoc listener error:', err);
+    callback(null);
+  });
 }
 
 // ── Grows ──
@@ -109,13 +108,19 @@ export async function getAllGrows(uid) {
 export function onGrow(uid, growId, callback) {
   return onSnapshot(growDocRef(uid, growId), (snap) => {
     callback(snap.exists() ? { id: snap.id, ...snap.data() } : null);
-  }, snapshotErrorHandler('grow'));
+  }, (err) => {
+    console.error('onGrow listener error:', err);
+    callback(null);
+  });
 }
 
 export function onAllGrows(uid, callback) {
   return onSnapshot(growsCol(uid), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }, snapshotErrorHandler('allGrows'));
+  }, (err) => {
+    console.error('onAllGrows listener error:', err);
+    callback([]);
+  });
 }
 
 // ── Weeks (checklists) ──
@@ -172,7 +177,10 @@ export async function getAllNotes(uid, growId) {
 export function onAllNotes(uid, growId, callback) {
   return onSnapshot(notesCol(uid, growId), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }, snapshotErrorHandler('allNotes'));
+  }, (err) => {
+    console.error('onAllNotes listener error:', err);
+    callback([]);
+  });
 }
 
 // ── Photos ──
@@ -205,7 +213,10 @@ export async function getAllPhotos(uid, growId) {
 export function onAllPhotos(uid, growId, callback) {
   return onSnapshot(photosCol(uid, growId), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }, snapshotErrorHandler('allPhotos'));
+  }, (err) => {
+    console.error('onAllPhotos listener error:', err);
+    callback([]);
+  });
 }
 
 // ── Feeding Logs ──
@@ -231,10 +242,6 @@ export async function getAllFeedingLogs(uid, growId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export async function updateFeedingLog(uid, growId, logId, data) {
-  return updateDoc(feedingLogDocRef(uid, growId, logId), { ...data, updatedAt: new Date().toISOString() });
-}
-
 export async function deleteFeedingLog(uid, growId, logId) {
   return deleteDoc(feedingLogDocRef(uid, growId, logId));
 }
@@ -242,51 +249,10 @@ export async function deleteFeedingLog(uid, growId, logId) {
 export function onAllFeedingLogs(uid, growId, callback) {
   return onSnapshot(feedingLogsCol(uid, growId), (snap) => {
     callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }, snapshotErrorHandler('allFeedingLogs'));
-}
-
-// ── Environment Logs ──
-
-function envLogsCol(uid, growId) {
-  return collection(db, 'users', uid, 'grows', growId, 'envLogs');
-}
-
-function envLogDocRef(uid, growId, logId) {
-  return doc(db, 'users', uid, 'grows', growId, 'envLogs', logId);
-}
-
-export async function createEnvLog(uid, growId, data) {
-  const docRef = await addDoc(envLogsCol(uid, growId), {
-    ...data,
-    createdAt: new Date().toISOString()
+  }, (err) => {
+    console.error('onAllFeedingLogs listener error:', err);
+    callback([]);
   });
-  return docRef.id;
-}
-
-export async function getAllEnvLogs(uid, growId) {
-  const snap = await getDocs(envLogsCol(uid, growId));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-export async function updateEnvLog(uid, growId, logId, data) {
-  return updateDoc(envLogDocRef(uid, growId, logId), { ...data, updatedAt: new Date().toISOString() });
-}
-
-export async function deleteEnvLog(uid, growId, logId) {
-  return deleteDoc(envLogDocRef(uid, growId, logId));
-}
-
-export function onAllEnvLogs(uid, growId, callback) {
-  return onSnapshot(envLogsCol(uid, growId), (snap) => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }, snapshotErrorHandler('allEnvLogs'));
-}
-
-// ── Weeks (getAllWeeks export) ──
-
-export async function getAllWeeks(uid, growId) {
-  const snap = await getDocs(weeksCol(uid, growId));
-  return snap.docs.map(d => ({ weekNum: d.id, ...d.data() }));
 }
 
 // ── Firebase Storage (photos) ──
@@ -315,52 +281,9 @@ export function uploadPhoto(uid, growId, file, onProgress) {
   });
 }
 
-export async function uploadThumbnail(uid, growId, blob) {
-  const timestamp = Date.now();
-  const rand = Math.random().toString(36).slice(2, 8);
-  const path = `users/${uid}/grows/${growId}/thumbs/${timestamp}_${rand}.jpg`;
-  const sRef = storageRef(storage, path);
-
-  const snapshot = await uploadBytes(sRef, blob, { contentType: 'image/jpeg' });
-  const url = await getDownloadURL(snapshot.ref);
-  return { url, storagePath: path };
-}
-
 export async function deleteStorageFile(path) {
   const sRef = storageRef(storage, path);
   return deleteObject(sRef);
-}
-
-// ── Delete Grow + All Subcollections ──
-
-export async function deleteGrowWithSubcollections(uid, growId) {
-  // Delete all subcollection docs
-  const subcollections = [
-    { col: notesCol(uid, growId) },
-    { col: feedingLogsCol(uid, growId) },
-    { col: envLogsCol(uid, growId) },
-    { col: weeksCol(uid, growId) },
-    { col: photosCol(uid, growId), hasStorage: true }
-  ];
-
-  for (const sub of subcollections) {
-    const snap = await getDocs(sub.col);
-    for (const d of snap.docs) {
-      if (sub.hasStorage) {
-        const data = d.data();
-        if (data.storagePath) {
-          try { await deleteStorageFile(data.storagePath); } catch (e) { /* ignore missing files */ }
-        }
-        if (data.thumbStoragePath) {
-          try { await deleteStorageFile(data.thumbStoragePath); } catch (e) { /* ignore missing files */ }
-        }
-      }
-      await deleteDoc(d.ref);
-    }
-  }
-
-  // Delete the grow doc itself
-  await deleteDoc(growDocRef(uid, growId));
 }
 
 // ── Legacy support: get old flat user doc (for migration) ──

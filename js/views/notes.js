@@ -2,7 +2,6 @@
 import store from '../store.js';
 import * as fb from '../firebase.js';
 import { updateNav } from '../components/header.js';
-import { escapeHtml, isValidGrowId, showConfirmModal, showToast } from '../utils.js';
 
 const CATEGORIES = [
   { key: 'feeding', icon: '&#x1f4a7;', label: 'Feeding' },
@@ -20,8 +19,6 @@ let editingNoteId = null;
 let filterCategory = '';
 let filterWeek = '';
 let filterText = '';
-let notesListClickHandler = null;
-let modalDirty = false;
 
 export function render(container, params) {
   growId = params.id;
@@ -41,7 +38,7 @@ export function render(container, params) {
         <input type="text" id="filterText" placeholder="Search notes...">
       </div>
 
-      <div id="noteModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="noteModalTitle">
+      <div id="noteModal" class="modal-overlay hidden">
         <div class="modal-content">
           <h3 id="noteModalTitle">Add Note</h3>
           <div class="input-group">
@@ -77,7 +74,7 @@ export function render(container, params) {
       </div>
 
       <div id="notesList" class="notes-list">
-        <div class="loading-spinner-container"><div class="spinner"></div><span>Loading notes...</span></div>
+        <div class="loading">Loading notes...</div>
       </div>
     </section>
   `;
@@ -85,45 +82,16 @@ export function render(container, params) {
 
 export function init(params) {
   growId = params.id;
-
-  // Validate grow ID
-  if (!isValidGrowId(growId)) {
-    import('../router.js').then(m => m.default.navigate('/dashboard'));
-    return;
-  }
-
   updateNav(growId);
 
   document.getElementById('addNoteBtn').addEventListener('click', () => openModal());
   document.getElementById('saveNoteBtn').addEventListener('click', saveNote);
   document.getElementById('cancelNoteBtn').addEventListener('click', closeModal);
   document.getElementById('deleteNoteBtn').addEventListener('click', deleteNote);
-  document.getElementById('noteModal').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeModal();
-  });
 
   document.getElementById('filterCategory').addEventListener('change', (e) => { filterCategory = e.target.value; renderNotes(); });
   document.getElementById('filterWeek').addEventListener('input', (e) => { filterWeek = e.target.value; renderNotes(); });
   document.getElementById('filterText').addEventListener('input', (e) => { filterText = e.target.value.toLowerCase(); renderNotes(); });
-
-  // Mark modal dirty on any field change (attached once here, not per openModal call)
-  const markDirty = () => { modalDirty = true; };
-  document.getElementById('noteCategory').addEventListener('change', markDirty);
-  document.getElementById('noteTitle').addEventListener('input', markDirty);
-  document.getElementById('noteContent').addEventListener('input', markDirty);
-  document.getElementById('noteWeek').addEventListener('input', markDirty);
-  document.getElementById('noteTags').addEventListener('input', markDirty);
-
-  // Delegated click handler for note cards
-  const notesList = document.getElementById('notesList');
-  notesListClickHandler = (e) => {
-    const card = e.target.closest('.note-card');
-    if (!card) return;
-    const noteId = card.dataset.noteId;
-    const note = notes.find(n => n.id === noteId);
-    if (note) openModal(note);
-  };
-  notesList.addEventListener('click', notesListClickHandler);
 
   loadNotes();
 }
@@ -150,8 +118,8 @@ function renderNotes() {
   if (filterCategory) {
     filtered = filtered.filter(n => n.category === filterCategory);
   }
-  if (filterWeek !== '' && filterWeek !== undefined) {
-    filtered = filtered.filter(n => n.week != null && String(n.week) === filterWeek);
+  if (filterWeek) {
+    filtered = filtered.filter(n => String(n.week) === filterWeek);
   }
   if (filterText) {
     filtered = filtered.filter(n =>
@@ -172,18 +140,26 @@ function renderNotes() {
   CATEGORIES.forEach(c => { iconMap[c.key] = c.icon; });
 
   container.innerHTML = filtered.map(n => `
-    <div class="note-card" data-note-id="${escapeHtml(n.id)}">
+    <div class="note-card" data-note-id="${n.id}">
       <div class="note-card-header">
         <span class="note-icon">${iconMap[n.category] || '&#x1f4dd;'}</span>
-        <span class="note-category-badge">${escapeHtml(n.category || 'general')}</span>
-        ${n.week ? `<span class="note-week-badge">Week ${escapeHtml(String(n.week))}</span>` : ''}
+        <span class="note-category-badge">${n.category || 'general'}</span>
+        ${n.week ? `<span class="note-week-badge">Week ${n.week}</span>` : ''}
         <span class="note-date">${n.createdAt ? new Date(n.createdAt).toLocaleDateString() : ''}</span>
       </div>
-      <h3 class="note-card-title">${escapeHtml(n.title || 'Untitled')}</h3>
-      <p class="note-card-content">${escapeHtml((n.content || '').slice(0, 200))}${(n.content || '').length > 200 ? '...' : ''}</p>
-      ${n.tags && n.tags.length ? `<div class="note-tags">${n.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+      <h3 class="note-card-title">${n.title || 'Untitled'}</h3>
+      <p class="note-card-content">${(n.content || '').slice(0, 200)}${(n.content || '').length > 200 ? '...' : ''}</p>
+      ${n.tags && n.tags.length ? `<div class="note-tags">${n.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
     </div>
   `).join('');
+
+  container.querySelectorAll('.note-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const noteId = card.dataset.noteId;
+      const note = notes.find(n => n.id === noteId);
+      if (note) openModal(note);
+    });
+  });
 }
 
 function openModal(note) {
@@ -196,17 +172,11 @@ function openModal(note) {
   document.getElementById('noteTags').value = note ? (note.tags || []).join(', ') : '';
   document.getElementById('deleteNoteBtn').classList.toggle('hidden', !note);
   document.getElementById('noteModal').classList.remove('hidden');
-
-  modalDirty = false;
 }
 
-async function closeModal() {
-  if (modalDirty) {
-    if (!(await showConfirmModal('Discard unsaved changes?'))) return;
-  }
+function closeModal() {
   document.getElementById('noteModal').classList.add('hidden');
   editingNoteId = null;
-  modalDirty = false;
 }
 
 async function saveNote() {
@@ -219,83 +189,76 @@ async function saveNote() {
   };
 
   if (!data.title && !data.content) {
-    showToast('Please enter a title or content.', 'error');
+    alert('Please enter a title or content.');
     return;
   }
 
-  const btn = document.getElementById('saveNoteBtn');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
-
   const user = fb.getCurrentUser();
 
-  try {
-    if (editingNoteId) {
-      if (user) {
+  if (editingNoteId) {
+    // Update
+    if (user) {
+      try {
         await fb.updateNote(user.uid, growId, editingNoteId, data);
-      } else {
-        const idx = notes.findIndex(n => n.id === editingNoteId);
-        if (idx >= 0) {
-          Object.assign(notes[idx], data, { updatedAt: new Date().toISOString() });
-          store.set(`grow_${growId}_notes`, notes);
-          renderNotes();
-        }
+      } catch (err) {
+        console.error('Failed to update note:', err);
+        alert('Failed to update note. Please try again.');
+        return;
       }
     } else {
-      if (user) {
-        await fb.createNote(user.uid, growId, data);
-      } else {
-        data.id = 'note_' + Date.now();
-        data.createdAt = new Date().toISOString();
-        notes.push(data);
+      const idx = notes.findIndex(n => n.id === editingNoteId);
+      if (idx >= 0) {
+        Object.assign(notes[idx], data, { updatedAt: new Date().toISOString() });
         store.set(`grow_${growId}_notes`, notes);
         renderNotes();
       }
     }
-    modalDirty = false;
-    closeModal();
-  } catch (err) {
-    console.error('Save note error:', err);
-    showToast('Failed to save note. Please try again.', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
+  } else {
+    // Create
+    if (user) {
+      try {
+        await fb.createNote(user.uid, growId, data);
+      } catch (err) {
+        console.error('Failed to create note:', err);
+        alert('Failed to save note. Please try again.');
+        return;
+      }
+    } else {
+      data.id = 'note_' + Date.now();
+      data.createdAt = new Date().toISOString();
+      notes.push(data);
+      store.set(`grow_${growId}_notes`, notes);
+      renderNotes();
+    }
   }
+
+  closeModal();
 }
 
 async function deleteNote() {
   if (!editingNoteId) return;
-  if (!(await showConfirmModal('Delete this note?', true))) return;
+  if (!confirm('Delete this note?')) return;
 
-  const btn = document.getElementById('deleteNoteBtn');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Deleting...';
-
-  try {
-    const user = fb.getCurrentUser();
-    if (user) {
+  const user = fb.getCurrentUser();
+  if (user) {
+    try {
       await fb.deleteNote(user.uid, growId, editingNoteId);
-    } else {
-      notes = notes.filter(n => n.id !== editingNoteId);
-      store.set(`grow_${growId}_notes`, notes);
-      renderNotes();
+    } catch (err) {
+      console.error('Failed to delete note:', err);
+      alert('Failed to delete note. Please try again.');
+      return;
     }
-    modalDirty = false;
-    closeModal();
-  } catch (err) {
-    console.error('Delete note error:', err);
-    showToast('Failed to delete note. Please try again.', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
+  } else {
+    notes = notes.filter(n => n.id !== editingNoteId);
+    store.set(`grow_${growId}_notes`, notes);
+    renderNotes();
   }
+
+  closeModal();
 }
 
 export function destroy() {
   if (unsubNotes) { unsubNotes(); unsubNotes = null; }
-  notesListClickHandler = null;
   notes = [];
   editingNoteId = null;
   filterCategory = '';

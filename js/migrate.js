@@ -180,8 +180,13 @@ export async function runMigration(uid) {
 
   // Step 3: If signed in, migrate Firestore
   if (uid) {
-    const didMigrate = await migrateFirestore(uid);
-    return didMigrate;
+    try {
+      const didMigrate = await migrateFirestore(uid);
+      return didMigrate;
+    } catch (err) {
+      console.error('Firestore migration failed (continuing offline):', err);
+      return false;
+    }
   }
 
   return false;

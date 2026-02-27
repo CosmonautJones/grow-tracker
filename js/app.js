@@ -11,8 +11,6 @@ import * as setupWizard from './views/setup-wizard.js';
 import * as growDetail from './views/grow-detail.js';
 import * as notes from './views/notes.js';
 import * as gallery from './views/gallery.js';
-import * as guides from './views/guides.js';
-import * as environment from './views/environment.js';
 
 // ── Initialize header ──
 header.render(document.getElementById('app-header'));
@@ -23,19 +21,19 @@ router.addRoute('/new', setupWizard);
 router.addRoute('/grow/:id', growDetail);
 router.addRoute('/grow/:id/notes', notes);
 router.addRoute('/grow/:id/gallery', gallery);
-router.addRoute('/grow/:id/guides', guides);
-router.addRoute('/grow/:id/environment', environment);
 
 // ── Auth state listener ──
 fb.onAuth(async (user) => {
   header.updateAuth(user);
 
-  try {
-    if (user) {
-      // Run migration for signed-in user
+  if (user) {
+    try {
       await runMigration(user.uid);
+    } catch (err) {
+      console.error('Migration failed (continuing anyway):', err);
+    }
 
-      // Ensure user doc exists
+    try {
       const existingDoc = await fb.getUserDoc(user.uid);
       if (!existingDoc) {
         await fb.setUserDoc(user.uid, {
@@ -44,12 +42,12 @@ fb.onAuth(async (user) => {
           createdAt: new Date().toISOString()
         });
       }
-    } else {
-      // Run local-only migration
-      await runMigration(null);
+    } catch (err) {
+      console.error('User doc check failed (continuing anyway):', err);
     }
-  } catch (e) {
-    console.error('Auth init error:', e);
+  } else {
+    // Run local-only migration (sync, won't throw on Firestore)
+    await runMigration(null);
   }
 
   // Initialize router after auth resolves (only once)
