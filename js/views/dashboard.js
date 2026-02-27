@@ -6,6 +6,7 @@ import { updateNav } from '../components/header.js';
 import { escapeHtml, showToast, showConfirmModal } from '../utils.js';
 import { exportAllGrowsAsJson, importFromFile, applyImport } from '../export-import.js';
 import { showProgressModal } from '../utils.js';
+import { cToF, calculateVpd, checkEnvAlerts, getEnvStageForWeek } from '../data/env-ranges.js';
 
 // Pi camera server — self-hosted via DuckDNS + Caddy (HTTPS, no auth proxy).
 // Stream is protected by Firebase ID tokens — the signed-in Google user's token
@@ -15,6 +16,7 @@ const CAMERA_URL = 'https://cosmonaut-tent.duckdns.org';
 
 let unsubGrows = null;
 let streamTokenInterval = null;
+let sensorPollInterval = null;
 
 export function render(container) {
   container.innerHTML = `
@@ -32,6 +34,28 @@ export function render(container) {
           <p id="feedOfflineMsg">Live feed offline</p>
           <p class="feed-offline-hint" id="feedOfflineHint">Camera server may be sleeping.</p>
           <button class="feed-auth-btn hidden" id="feedSignInBtn">&#x1f511; Sign in to view live feed</button>
+        </div>
+      </div>
+      <div class="tent-sensors-panel hidden" id="sensorPanel">
+        <div class="sensor-card" id="sensorTemp">
+          <span class="sensor-value" id="sensorTempVal">--</span>
+          <span class="sensor-label">Temp</span>
+          <span class="sensor-status" id="sensorTempStatus"></span>
+        </div>
+        <div class="sensor-card" id="sensorHumidity">
+          <span class="sensor-value" id="sensorHumidityVal">--</span>
+          <span class="sensor-label">Humidity</span>
+          <span class="sensor-status" id="sensorHumidityStatus"></span>
+        </div>
+        <div class="sensor-card" id="sensorVpd">
+          <span class="sensor-value" id="sensorVpdVal">--</span>
+          <span class="sensor-label">VPD</span>
+          <span class="sensor-status" id="sensorVpdStatus"></span>
+        </div>
+        <div class="sensor-card" id="sensorPressure">
+          <span class="sensor-value" id="sensorPressureVal">--</span>
+          <span class="sensor-label">Pressure</span>
+          <span class="sensor-status" id="sensorPressureStatus"></span>
         </div>
       </div>
     </section>
@@ -98,6 +122,10 @@ export function init() {
         const u = fb.getCurrentUser();
         if (u) _loadStream(u, stream);
       }, 55 * 60 * 1000);
+
+      // Poll sensors every 5 seconds
+      _pollSensors();
+      sensorPollInterval = setInterval(_pollSensors, 5000);
     }
   }
 
@@ -186,6 +214,74 @@ async function _loadStream(user, streamEl) {
     streamEl.src = `${CAMERA_URL}/stream?token=${encodeURIComponent(token)}`;
   } catch (err) {
     console.error('Failed to get Firebase ID token for stream:', err);
+  }
+}
+
+function _getActiveStageKey() {
+  const grows = store.get('grows') || {};
+  const active = Object.values(grows).find(g => g.status === 'active');
+  if (!active || !active.currentWeek) return 'vegetative';
+  return getEnvStageForWeek(active.plantType || 'autoflower', active.currentWeek);
+}
+
+async function _pollSensors() {
+  const panel = document.getElementById('sensorPanel');
+  if (!panel) return;
+  try {
+    const res = await fetch(`${CAMERA_URL}/api/sensors`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.temperature_c && data.temperature_c !== 0) {
+      // Empty response — sensor not available
+      panel.classList.add('hidden');
+      return;
+    }
+    panel.classList.remove('hidden');
+
+    const tempF = parseFloat(cToF(data.temperature_c));
+    const hum = data.humidity_pct;
+    const vpd = calculateVpd(tempF, hum);
+    const pressure = data.pressure_hpa;
+
+    document.getElementById('sensorTempVal').textContent = `${tempF}\u00B0F`;
+    document.getElementById('sensorHumidityVal').textContent = `${hum}%`;
+    document.getElementById('sensorVpdVal').textContent = `${vpd.toFixed(2)} kPa`;
+    document.getElementById('sensorPressureVal').textContent = `${pressure} hPa`;
+
+    // Run alerts against active grow stage
+    const stageKey = _getActiveStageKey();
+    const { alerts } = checkEnvAlerts({ tempF, humidity: hum, vpd }, stageKey);
+
+    // Build a lookup: field -> worst level
+    const fieldLevel = {};
+    for (const a of alerts) {
+      const prev = fieldLevel[a.field];
+      if (!prev || a.level === 'alert') fieldLevel[a.field] = a.level;
+    }
+
+    _setSensorStatus('sensorTempStatus', fieldLevel['tempF']);
+    _setSensorStatus('sensorHumidityStatus', fieldLevel['humidity']);
+    _setSensorStatus('sensorVpdStatus', fieldLevel['vpd']);
+    // Pressure has no alert range — always ok
+    _setSensorStatus('sensorPressureStatus', undefined);
+  } catch (err) {
+    console.warn('Sensor poll failed:', err);
+  }
+}
+
+function _setSensorStatus(elId, level) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.className = 'sensor-status';
+  if (!level) {
+    el.classList.add('sensor-status--ok');
+    el.textContent = '';
+  } else if (level === 'warn') {
+    el.classList.add('sensor-status--warn');
+    el.textContent = '';
+  } else {
+    el.classList.add('sensor-status--alert');
+    el.textContent = '';
   }
 }
 
@@ -292,5 +388,9 @@ export function destroy() {
   if (streamTokenInterval) {
     clearInterval(streamTokenInterval);
     streamTokenInterval = null;
+  }
+  if (sensorPollInterval) {
+    clearInterval(sensorPollInterval);
+    sensorPollInterval = null;
   }
 }

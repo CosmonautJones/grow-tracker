@@ -430,6 +430,72 @@ button:disabled {
 }
 .feed-auth-btn:hover { opacity: 0.85; }
 
+/* ── Tent Sensor Panel ── */
+
+.tent-sensors-panel {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    max-width: 720px;
+}
+
+.sensor-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 12px 8px;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    position: relative;
+}
+
+.sensor-value {
+    font-size: 1.35em;
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.2;
+}
+
+.sensor-label {
+    font-size: 0.75em;
+    font-weight: 500;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sensor-status {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.sensor-status--ok {
+    background: var(--success-color);
+}
+
+.sensor-status--warn {
+    background: var(--warning-color);
+    animation: status-pulse 2s ease-in-out infinite;
+}
+
+.sensor-status--alert {
+    background: var(--danger-color);
+    animation: status-pulse 1s ease-in-out infinite;
+}
+
+@media (max-width: 600px) {
+    .tent-sensors-panel {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 .feed-status {
     display: inline-flex;
     align-items: center;
@@ -2786,6 +2852,15 @@ button:disabled {
 [data-theme="dark"] .feed-offline-placeholder {
     background: var(--surface-subtle);
     border-color: var(--border-color);
+}
+
+[data-theme="dark"] .sensor-card {
+    background: var(--surface-subtle);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .sensor-value {
+    color: var(--text-dark);
 }
 
 [data-theme="dark"] .grow-card-details span {
