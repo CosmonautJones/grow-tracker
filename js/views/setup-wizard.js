@@ -138,6 +138,7 @@ function renderStrainInfo(el) {
     <div class="input-group">
       <label for="strainName">Strain Name *</label>
       <input type="text" id="strainName" value="${formData.strainName}" placeholder="e.g., Northern Lights Auto" required>
+      <span id="strainNameError" class="field-error" style="display:none;color:#e74c3c;font-size:0.85em;">Strain name is required.</span>
     </div>
     <div class="input-group" style="margin-top: 15px;">
       <label for="breeder">Breeder (optional)</label>
@@ -289,7 +290,8 @@ async function goNext() {
 
   // Validation
   if (currentStep === 2 && !formData.strainName.trim()) {
-    alert('Please enter a strain name.');
+    const errorEl = document.getElementById('strainNameError');
+    if (errorEl) errorEl.style.display = 'block';
     return;
   }
 

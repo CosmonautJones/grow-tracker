@@ -19,6 +19,7 @@ let editingNoteId = null;
 let filterCategory = '';
 let filterWeek = '';
 let filterText = '';
+let modalInitialState = null;
 
 export function render(container, params) {
   growId = params.id;
@@ -38,7 +39,7 @@ export function render(container, params) {
         <input type="text" id="filterText" placeholder="Search notes...">
       </div>
 
-      <div id="noteModal" class="modal-overlay hidden">
+      <div id="noteModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="noteModalTitle">
         <div class="modal-content">
           <h3 id="noteModalTitle">Add Note</h3>
           <div class="input-group">
@@ -69,6 +70,16 @@ export function render(container, params) {
             <button id="saveNoteBtn" class="primary-btn small-btn">Save</button>
             <button id="cancelNoteBtn" class="secondary-btn small-btn">Cancel</button>
             <button id="deleteNoteBtn" class="danger-btn small-btn hidden">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="confirm-modal modal-overlay hidden">
+        <div class="modal-content">
+          <p class="confirm-modal-message"></p>
+          <div class="form-actions">
+            <button class="confirm-modal-confirm primary-btn small-btn">Confirm</button>
+            <button class="confirm-modal-cancel secondary-btn small-btn">Cancel</button>
           </div>
         </div>
       </div>
@@ -162,6 +173,43 @@ function renderNotes() {
   });
 }
 
+function getModalState() {
+  return JSON.stringify({
+    category: document.getElementById('noteCategory').value,
+    title: document.getElementById('noteTitle').value,
+    content: document.getElementById('noteContent').value,
+    week: document.getElementById('noteWeek').value,
+    tags: document.getElementById('noteTags').value
+  });
+}
+
+function isModalDirty() {
+  return modalInitialState !== null && getModalState() !== modalInitialState;
+}
+
+function showConfirmModal(message) {
+  return new Promise((resolve) => {
+    const modal = document.querySelector('.confirm-modal');
+    modal.querySelector('.confirm-modal-message').textContent = message;
+    modal.classList.remove('hidden');
+
+    const confirmBtn = modal.querySelector('.confirm-modal-confirm');
+    const cancelBtn = modal.querySelector('.confirm-modal-cancel');
+
+    function cleanup() {
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      modal.classList.add('hidden');
+    }
+
+    function onConfirm() { cleanup(); resolve(true); }
+    function onCancel() { cleanup(); resolve(false); }
+
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+
 function openModal(note) {
   editingNoteId = note ? note.id : null;
   document.getElementById('noteModalTitle').textContent = note ? 'Edit Note' : 'Add Note';
@@ -172,11 +220,21 @@ function openModal(note) {
   document.getElementById('noteTags').value = note ? (note.tags || []).join(', ') : '';
   document.getElementById('deleteNoteBtn').classList.toggle('hidden', !note);
   document.getElementById('noteModal').classList.remove('hidden');
+  modalInitialState = getModalState();
 }
 
-function closeModal() {
+function forceCloseModal() {
   document.getElementById('noteModal').classList.add('hidden');
   editingNoteId = null;
+  modalInitialState = null;
+}
+
+async function closeModal() {
+  if (isModalDirty()) {
+    const discard = await showConfirmModal('Discard unsaved changes?');
+    if (!discard) return;
+  }
+  forceCloseModal();
 }
 
 async function saveNote() {
@@ -232,12 +290,13 @@ async function saveNote() {
     }
   }
 
-  closeModal();
+  forceCloseModal();
 }
 
 async function deleteNote() {
   if (!editingNoteId) return;
-  if (!confirm('Delete this note?')) return;
+  const confirmed = await showConfirmModal('Delete this note?');
+  if (!confirmed) return;
 
   const user = fb.getCurrentUser();
   if (user) {
@@ -254,7 +313,7 @@ async function deleteNote() {
     renderNotes();
   }
 
-  closeModal();
+  forceCloseModal();
 }
 
 export function destroy() {

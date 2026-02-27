@@ -1,5 +1,5 @@
 // Service Worker — Grow Tracker offline support
-const CACHE_VERSION = 'grow-tracker-v5';
+const CACHE_VERSION = 'grow-tracker-v6';
 
 // App shell files to pre-cache
 const APP_SHELL = [

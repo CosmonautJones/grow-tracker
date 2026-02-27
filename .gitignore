@@ -20,6 +20,7 @@ package-lock.json
 # Legacy / dead files
 script.js
 test-*.js
+!tests/fixtures/test-fixtures.js
 inspect-*.js
 
 # Screenshots

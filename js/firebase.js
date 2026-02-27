@@ -255,6 +255,41 @@ export function onAllFeedingLogs(uid, growId, callback) {
   });
 }
 
+// ── Environment Logs ──
+
+function envLogsCol(uid, growId) {
+  return collection(db, 'users', uid, 'grows', growId, 'envLogs');
+}
+
+function envLogDocRef(uid, growId, logId) {
+  return doc(db, 'users', uid, 'grows', growId, 'envLogs', logId);
+}
+
+export async function createEnvLog(uid, growId, data) {
+  const docRef = await addDoc(envLogsCol(uid, growId), {
+    ...data,
+    createdAt: new Date().toISOString()
+  });
+  return docRef.id;
+}
+
+export async function updateEnvLog(uid, growId, logId, data) {
+  return updateDoc(envLogDocRef(uid, growId, logId), { ...data, updatedAt: new Date().toISOString() });
+}
+
+export async function deleteEnvLog(uid, growId, logId) {
+  return deleteDoc(envLogDocRef(uid, growId, logId));
+}
+
+export function onAllEnvLogs(uid, growId, callback) {
+  return onSnapshot(envLogsCol(uid, growId), (snap) => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, (err) => {
+    console.error('onAllEnvLogs listener error:', err);
+    callback([]);
+  });
+}
+
 // ── Firebase Storage (photos) ──
 
 export function uploadPhoto(uid, growId, file, onProgress) {

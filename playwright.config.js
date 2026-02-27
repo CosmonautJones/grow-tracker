@@ -11,7 +11,7 @@ export default defineConfig({
   timeout: 30000,
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:8080',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -77,8 +77,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npx serve -l 3000 --no-clipboard',
-    port: 3000,
+    command: 'npx serve -l 8080 --no-clipboard',
+    port: 8080,
     reuseExistingServer: !process.env.CI,
   },
 });
