@@ -374,7 +374,6 @@ button:disabled {
     background: #0a0a0a;
     border-radius: var(--radius-md);
     overflow: hidden;
-    max-width: 720px;
 }
 
 .live-feed-img {
@@ -437,7 +436,6 @@ button:disabled {
     grid-template-columns: repeat(4, 1fr);
     gap: var(--space-sm);
     margin-top: var(--space-md);
-    max-width: 720px;
 }
 
 .sensor-card {
